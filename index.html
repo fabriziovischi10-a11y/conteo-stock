@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d2420">
+<title>Conteo de Stock Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: herramienta de depósito. Una barra superior con selector de vista; escritorio = pestañas + tabla; celular = una columna con el escáner arriba. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --surface-2:#e9ebe6; --line:#d3d7cf;
+  --fg:#1d2420; --muted:#5f6a63; --accent:#1f5f8b; --accent-fg:#ffffff;
+  --tape:#e8a317; --tape-fg:#2a1d00;
+  --ok:#2c7a4b; --ok-bg:#e2f1e7; --bad:#b4332b; --bad-bg:#f8e3e0; --over:#8a5a00; --over-bg:#fbefd6;
+  --font-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --font-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1c2320; --surface-2:#252d29; --line:#36403b;
+  --fg:#e6ebe7; --muted:#9aa69f; --accent:#6fb0de; --accent-fg:#0d1b26;
+  --tape:#f0b43c; --tape-fg:#241800;
+  --ok:#6fcf97; --ok-bg:#1d3326; --bad:#f08a80; --bad-bg:#3a1f1c; --over:#f0c060; --over-bg:#3a2e14;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1c2320; --surface-2:#252d29; --line:#36403b;
+  --fg:#e6ebe7; --muted:#9aa69f; --accent:#6fb0de; --accent-fg:#0d1b26;
+  --tape:#f0b43c; --tape-fg:#241800;
+  --ok:#6fcf97; --ok-bg:#1d3326; --bad:#f08a80; --bad-bg:#3a1f1c; --over:#f0c060; --over-bg:#3a2e14;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+.who{display:flex;align-items:center;gap:8px;font-size:13px}
+.who .btn{min-height:32px;padding:4px 10px;background:transparent;color:inherit;border-color:color-mix(in srgb,var(--bg) 40%,transparent)}
+.login{max-width:440px;margin:40px auto;display:flex;flex-direction:column;gap:14px;text-align:center}
+.login h1{font-size:34px}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+input,select{font-size:16px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-size:.88em;letter-spacing:-.01em}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--fg);color:var(--bg);
+  padding-inline:16px;padding-block:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:.02em;text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .tape{background:var(--tape);color:var(--tape-fg);padding:1px 8px;border-radius:3px;font-size:14px;letter-spacing:.08em}
+.seg{display:flex;background:color-mix(in srgb,var(--bg) 14%,transparent);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;color:inherit;padding:6px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--fg)}
+
+.wrap{padding-inline:16px;padding-block:16px 48px;max-width:1240px;margin:0 auto}
+.notice{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.notice.warn{border-color:var(--tape);background:var(--over-bg)}
+
+h1,h2,h3{font-family:var(--font-display);font-weight:600;letter-spacing:.01em;text-wrap:balance;margin:0}
+h2{font-size:24px}
+h3{font-size:18px}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface);
+  padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:600;min-height:40px;text-decoration:none;user-select:none}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.btn.big{min-height:56px;font-size:18px;border-radius:12px;width:100%}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field input,.field select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-height:40px;min-width:0}
+
+/* Tabs (admin) */
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.tabs button{border:0;background:transparent;padding:10px 14px;font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--tape)}
+.tabs .count{font-family:var(--font-body);font-size:12px;background:var(--surface-2);border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:2px}
+
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1.3fr 1.3fr .7fr;gap:10px;align-items:end;margin-bottom:12px}
+@media (max-width:1000px){.filters{grid-template-columns:1fr 1fr}}
+th[data-k]{cursor:pointer;user-select:none}
+th[data-k]:hover{color:var(--fg)}
+th[data-dir="1"],th[data-dir="-1"]{color:var(--fg)}
+th[data-dir="1"]::after{content:" ▲";color:var(--tape)}
+th[data-dir="-1"]::after{content:" ▼";color:var(--tape)}
+.sortsel{display:flex;align-items:center;gap:8px}
+.sortsel select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px;min-height:38px;max-width:100%}
+.check{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--surface-2);position:sticky;top:0;white-space:nowrap}
+td.r,th.r{text-align:right}
+tbody tr:hover{background:color-mix(in srgb,var(--surface-2) 60%,transparent)}
+tr.sel{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+td.desc{min-width:240px}
+
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--muted)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.over{background:var(--over-bg);color:var(--over)}
+.pill.list{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.diff.neg{color:var(--bad);font-weight:600}
+.diff.pos{color:var(--over);font-weight:600}
+.diff.zero{color:var(--ok);font-weight:600}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+@media (max-width:700px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.tile .v{font-family:var(--font-display);font-size:32px;font-weight:700;line-height:1.1}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:14px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--bad-bg);border-radius:8px;padding:6px 10px}
+
+/* Celular (Hugo) */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface-2);border-radius:14px;padding:5px}
+.modes button{border:0;background:transparent;border-radius:10px;min-height:48px;font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--muted);cursor:pointer}
+.modes button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.modes button#mBajas[aria-pressed="true"]{background:var(--bad);color:var(--surface)}
+.card.baja{border-color:var(--bad)}
+.motivos{display:flex;gap:6px;flex-wrap:wrap}
+.motivos .chip{min-height:40px}
+.nota{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);width:100%;min-height:44px}
+.phone{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.progress{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.progress .track{height:10px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:8px}
+.progress .fill{height:100%;background:var(--ok);width:0;transition:width .3s}
+.scanbtns{display:grid;grid-template-columns:1fr;gap:8px}
+.scanbtns .btn.big{background:var(--tape);border-color:var(--tape);color:var(--tape-fg)}
+#fotoInput{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.searchbox{display:flex;gap:8px}
+.searchbox input{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;min-width:0;min-height:48px}
+.status{font-size:14px;min-height:20px}
+.status.err{color:var(--bad)}
+
+.live{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3;max-width:100%}
+.live video{width:100%;height:100%;object-fit:cover;display:block}
+.live .aim{position:absolute;left:8%;right:8%;top:42%;height:16%;border:2px solid var(--tape);border-radius:8px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.live .close{position:absolute;right:8px;top:8px}
+
+.card{background:var(--surface);border:2px solid var(--fg);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card .desc{font-family:var(--font-display);font-size:24px;font-weight:600;line-height:1.15}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kv .wide{grid-column:1 / -1}
+.cardhead{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.cardhead .desc{flex:1;min-width:0}
+.kv div{background:var(--surface-2);border-radius:8px;padding:8px 10px;min-width:0}
+.kv .v{font-weight:600;overflow-wrap:anywhere}
+.kv .v.big{font-family:var(--font-display);font-size:26px;line-height:1.1}
+.qty{display:flex;flex-direction:column;gap:6px}
+.qty > input[type="number"]{font-family:var(--font-display);font-size:40px;font-weight:700;text-align:center;border:2px solid var(--line);border-radius:12px;padding:6px;background:var(--bg);width:100%}
+.bultos{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.bultos input{width:80px;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);text-align:center}
+.result{border-radius:10px;padding:10px 12px;font-weight:600;font-size:17px}
+.result.ok{background:var(--ok-bg);color:var(--ok)}
+.result.bad{background:var(--bad-bg);color:var(--bad)}
+.result.over{background:var(--over-bg);color:var(--over)}
+
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.list button{display:flex;gap:10px;align-items:center;justify-content:space-between;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:10px 12px;cursor:pointer;min-height:52px}
+.list button:last-child{border-bottom:0}
+.list .t{min-width:0;flex:1}
+.list .t .d{font-weight:600;overflow-wrap:anywhere}
+.empty{padding:22px 16px;text-align:center;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:50;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="tape">Conteo</span> Stock</div>
+  <div class="who" id="who" hidden><span id="whoMail"></span><button class="btn" id="bLogout" type="button">Salir</button></div>
+  <div class="seg" role="group" aria-label="Vista">
+    <button id="vAdmin" type="button" aria-pressed="false">Escritorio</button>
+    <button id="vHugo" type="button" aria-pressed="false">Celular (Hugo)</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="dbNotice" class="notice" hidden></div>
+  <section class="login" id="login" hidden>
+    <h1>Conteo de stock</h1>
+    <p class="muted" id="loginMsg">Entrá con tu cuenta de Google para ver el stock y cargar conteos y roturas.</p>
+    <button class="btn big primary" id="bLogin" type="button">Entrar con Google</button>
+  </section>
+
+  <!-- ===== ESCRITORIO ===== -->
+  <section id="admin" hidden>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tArmar" aria-selected="true">Armar lista</button>
+      <button role="tab" id="tRes" aria-selected="false">Resultados <span class="count num" id="cntRes">0</span></button>
+      <button role="tab" id="tBajas" aria-selected="false">Roturas / bajas <span class="count num" id="cntBajas">0</span></button>
+      <button role="tab" id="tCat" aria-selected="false">Stock del sistema</button>
+    </nav>
+
+    <div id="pArmar">
+      <div class="filters">
+        <label class="field"><span class="label">Buscar</span><input id="fQ" type="search" placeholder="Descripción, código interno o de barras"></label>
+        <label class="field"><span class="label">Rubro</span><select id="fA"><option value="">Todos</option></select></label>
+        <label class="field"><span class="label">Subrubro</span><select id="fB"><option value="">Todos</option></select></label>
+        <label class="field"><span class="label">Stock</span>
+          <select id="fLow">
+            <option value="">Cualquier stock</option>
+            <option value="ptocri">Bajo: stock ≤ punto crítico</option>
+            <option value="min">Bajo: stock ≤ mínimo</option>
+            <option value="n">Bajo: stock ≤ cantidad…</option>
+          </select></label>
+        <label class="field"><span class="label">Ordenar por</span><select id="sArm"></select></label>
+        <label class="field" id="fNWrap" hidden><span class="label">Cantidad</span><input id="fN" type="number" inputmode="numeric" value="10"></label>
+      </div>
+      <div class="row" style="margin-bottom:12px">
+        <label class="check"><input id="fZero" type="checkbox"> Incluir stock 0 o negativo</label>
+        <label class="check"><input id="fNoList" type="checkbox"> Ocultar los que ya están en la lista</label>
+      </div>
+      <div class="bar">
+        <div><strong class="num" id="armCount">0</strong> productos filtrados · <strong class="num" id="selCount">0</strong> marcados</div>
+        <div class="row">
+          <button class="btn" id="bSelAll" type="button">Marcar los filtrados</button>
+          <button class="btn" id="bSelNone" type="button">Desmarcar todo</button>
+          <button class="btn primary" id="bAdd" type="button" disabled>Agregar a la lista de Hugo</button>
+        </div>
+      </div>
+      <div class="status" id="addStatus"></div>
+      <div class="tablebox">
+        <table>
+          <thead id="armHead"><tr><th style="width:36px"></th><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="rubro">Rubro</th><th class="r" data-k="stock">Stock</th><th class="r" data-k="ptocri">Pto. crít.</th><th></th></tr></thead>
+          <tbody id="armBody"></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="bMore" type="button" hidden>Mostrar más</button><span class="muted" id="moreInfo"></span></div>
+    </div>
+
+    <div id="pRes" hidden>
+      <div class="tiles">
+        <div class="tile"><div class="label">En la lista</div><div class="v num" id="kList">0</div></div>
+        <div class="tile"><div class="label">Contados</div><div class="v num" id="kDone">0</div></div>
+        <div class="tile"><div class="label">Con diferencia</div><div class="v num" id="kDiff">0</div></div>
+        <div class="tile"><div class="label">Diferencia neta (u.)</div><div class="v num" id="kNet">0</div></div>
+      </div>
+      <div class="bar">
+        <div class="chips" id="resChips">
+          <button class="chip" data-f="" aria-pressed="true">Todos</button>
+          <button class="chip" data-f="pend" aria-pressed="false">Pendientes</button>
+          <button class="chip" data-f="diff" aria-pressed="false">Con diferencia</button>
+          <button class="chip" data-f="ok" aria-pressed="false">Coinciden</button>
+          <button class="chip" data-f="extra" aria-pressed="false">Agregados por Hugo</button>
+        </div>
+        <div class="row">
+          <label class="sortsel"><span class="label">Ordenar</span><select id="sRes"></select></label>
+          <button class="btn" id="bCopy" type="button">Copiar para Excel</button>
+          <button class="btn" id="bCsv" type="button">Descargar CSV</button>
+          <span id="clearWrap"><button class="btn danger" id="bClear" type="button">Vaciar lista</button></span>
+        </div>
+      </div>
+      <div class="status" id="resStatus"></div>
+      <div class="tablebox">
+        <table>
+          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th></th></tr></thead>
+          <tbody id="resBody"></tbody>
+        </table>
+      </div>
+      <textarea id="copyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
+    </div>
+
+    <div id="pBajas" hidden>
+      <div class="tiles">
+        <div class="tile"><div class="label">Cargas</div><div class="v num" id="kbN">0</div></div>
+        <div class="tile"><div class="label">Productos distintos</div><div class="v num" id="kbP">0</div></div>
+        <div class="tile"><div class="label">Unidades dadas de baja</div><div class="v num" id="kbU">0</div></div>
+        <div class="tile"><div class="label">Unidades hoy</div><div class="v num" id="kbH">0</div></div>
+      </div>
+      <div class="bar">
+        <div class="row">
+          <label class="field" style="flex-direction:row;align-items:center;gap:8px"><span class="label">Período</span>
+            <select id="bPer"><option value="hoy">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="">Todo</option></select></label>
+          <label class="check"><input id="bAgr" type="checkbox"> Sumar por producto</label>
+          <label class="sortsel"><span class="label">Ordenar</span><select id="sBaj"></select></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="bBCopy" type="button">Copiar para Excel</button>
+          <button class="btn" id="bBCsv" type="button">Descargar CSV</button>
+          <span id="bClearWrap"></span>
+        </div>
+      </div>
+      <div class="status" id="bStatus"></div>
+      <div class="tablebox">
+        <table>
+          <thead id="bHead"></thead>
+          <tbody id="bBody"></tbody>
+        </table>
+      </div>
+      <textarea id="bCopyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
+    </div>
+
+    <div id="pCat" hidden>
+      <div class="notice" id="catInfo">Cargando el stock del sistema…</div>
+      <h3 style="margin-bottom:6px">Importar un archivo nuevo</h3>
+      <p class="muted" style="max-width:65ch;margin-top:0">Elegí el Excel exportado del sistema (.xls, .xlsx o .csv). Tiene que tener las columnas <span class="mono">codigo</span>, <span class="mono">codigof</span> (código de barras), <span class="mono">descripcio</span> y <span class="mono">stock</span>; si tiene <span class="mono">ptocri</span>, <span class="mono">min</span> y los rubros, también se usan. Reemplaza el stock cargado; la lista de Hugo y lo que ya contó no se tocan.</p>
+      <div class="row"><input id="impFile" type="file" accept=".xls,.xlsx,.csv"><button class="btn primary" id="bImp" type="button" disabled>Importar</button></div>
+      <div class="status" id="impStatus"></div>
+    </div>
+  </section>
+
+  <!-- ===== CELULAR ===== -->
+  <section id="hugo" hidden>
+    <div class="phone">
+      <div class="modes" role="group" aria-label="Qué estás cargando">
+        <button id="mConteo" type="button" aria-pressed="true">Conteo</button>
+        <button id="mBajas" type="button" aria-pressed="false">Roturas / bajas</button>
+      </div>
+      <div class="progress" id="hBajasHead" hidden>
+        <div class="row" style="justify-content:space-between"><h2>Roturas y bajas</h2><span class="num"><strong id="bHoyU">0</strong> u. hoy</span></div>
+        <div class="muted" style="margin-top:4px">Escaneá cada producto roto o dado de baja y cargá cuántas unidades. Podés cargar el mismo producto varias veces.</div>
+      </div>
+      <div class="progress" id="hConteoHead">
+        <div class="row" style="justify-content:space-between"><h2>Conteo de Hugo</h2><span class="num"><strong id="hDone">0</strong> de <span id="hTotal">0</span></span></div>
+        <div class="track"><div class="fill" id="hFill"></div></div>
+      </div>
+
+      <div class="scanbtns">
+        <button class="btn big" id="bLive" type="button">Escanear código de barras</button>
+        <label class="btn" for="fotoInput">Sacar foto del código (si el escáner no lee)</label>
+        <input id="fotoInput" type="file" accept="image/*" capture="environment">
+      </div>
+      <div class="live" id="liveBox" hidden>
+        <video id="liveVideo" playsinline muted></video>
+        <div class="aim"></div>
+        <button class="btn close" id="bLiveClose" type="button">Cerrar</button>
+      </div>
+
+      <form class="searchbox" id="hSearchForm" autocomplete="off">
+        <input id="hQ" type="search" inputmode="search" placeholder="O escribí código o descripción">
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+      <div class="status" id="hStatus"></div>
+      <div class="list" id="hMatches" hidden></div>
+
+      <div id="hCard"></div>
+
+      <div id="hConteoList">
+        <div class="chips" id="hChips" style="margin-bottom:10px">
+          <button class="chip" data-f="pend" aria-pressed="true">Faltan contar</button>
+          <button class="chip" data-f="done" aria-pressed="false">Ya contados</button>
+        </div>
+        <div class="list" id="hList"></div>
+      </div>
+      <div id="hBajasList" hidden>
+        <h3 style="margin-bottom:8px">Cargadas hoy</h3>
+        <div class="list" id="hBList"></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js';
+const CHUNK = 600;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => (n == null || n === '') ? '—' : Number(n).toLocaleString('es-AR');
+const fmtDiff = d => d == null ? '—' : (d > 0 ? '+' : '') + Number(d).toLocaleString('es-AR');
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const docId = cod => 'p_' + String(cod).replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 180);
+const ls = { get(k){ try { return localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch {} } };
+
+let db = null, canWrite = true;
+// Descarga un archivo de texto desde el navegador.
+function saveFile(filename, text){
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+let catalog = [], byBar = new Map(), byCod = new Map(), catMeta = null;
+let items = new Map(); // docId -> data
+let selected = new Set(); // cod
+let armLimit = 300;
+let resFilter = '', hFilter = 'pend';
+let current = null; // producto abierto en el celular
+let stream = null, liveTimer = null, wake = null; // cámara en vivo
+let bajas = []; // cargas de roturas/bajas, más nuevas primero
+let hMode = ls.get('modo') === 'bajas' ? 'bajas' : 'conteo';
+let motivo = 'Rotura';
+const MOTIVOS = ['Rotura', 'Vencido', 'Mal estado', 'Otro'];
+
+/* ---------- Orden de las tablas ---------- */
+// tipo: n = número (mayor a menor primero), t = texto (A→Z primero), d = fecha (más nuevos primero)
+const SORTS = {
+  arm: { k:'stock', dir:-1, keys:{ stock:['Stock','n'], ptocri:['Punto crítico','n'], desc:['Descripción','t'], cod:['Código interno','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
+  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], bar:['Código de barras','t'] } },
+  baj: { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
+};
+const cmpVal = (a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+function sortList(list, s, get){
+  return list.sort((x, y) => {
+    const a = get(x, s.k), b = get(y, s.k);
+    const na = a == null || a === '', nb = b == null || b === '';
+    if (na || nb) return na === nb ? 0 : na ? 1 : -1; // vacíos siempre al final
+    return cmpVal(a, b) * s.dir;
+  });
+}
+function sortOptions(sel, s, keys){
+  sel.innerHTML = keys.map(k => { const [lab, t] = s.keys[k];
+    return t === 'n' ? `<option value="${k}:-1">${lab}: de mayor a menor</option><option value="${k}:1">${lab}: de menor a mayor</option>`
+      : t === 'd' ? `<option value="${k}:-1">${lab}: más nuevos primero</option><option value="${k}:1">${lab}: más viejos primero</option>`
+      : `<option value="${k}:1">${lab}: A → Z</option><option value="${k}:-1">${lab}: Z → A</option>`; }).join('');
+  sel.value = s.k + ':' + s.dir;
+}
+function markHeaders(thead, s){
+  for (const th of thead.querySelectorAll('th[data-k]')){
+    const on = th.dataset.k === s.k;
+    th.dataset.dir = on ? String(s.dir) : '';
+    th.setAttribute('aria-sort', on ? (s.dir > 0 ? 'ascending' : 'descending') : 'none');
+  }
+}
+function wireSort(name, sel, thead, render){
+  const s = SORTS[name];
+  sel.addEventListener('input', () => { const [k, d] = sel.value.split(':'); s.k = k; s.dir = +d; render(); });
+  thead.addEventListener('click', e => {
+    const th = e.target.closest('th[data-k]'); if (!th) return;
+    const k = th.dataset.k;
+    if (s.k === k) s.dir = -s.dir; else { s.k = k; s.dir = s.keys[k][1] === 't' ? 1 : -1; }
+    sel.value = s.k + ':' + s.dir; render();
+  });
+}
+
+const NO_PERM = 'Tu cuenta no está autorizada para guardar. El administrador tiene que agregar tu mail en las reglas de Firestore (ver README).';
+// Firestore rechaza con permission-denied cuando el mail no está en las reglas.
+function writeErr(err){
+  if (err && err.code === 'permission-denied'){ setReadOnly(); return NO_PERM; }
+  return 'No se guardó: ' + (err && (err.message || err.code) || 'error desconocido');
+}
+function setReadOnly(){
+  if (!canWrite) return;
+  canWrite = false;
+  const n = $('dbNotice'); n.hidden = false; n.className = 'notice warn'; n.textContent = NO_PERM;
+  renderArmar(); renderRes(); renderBajasPhone(); renderBajasAdmin(); renderClear(false);
+  for (const id of ['bSave', 'bBajaSave']){ const b = $(id); if (b) b.disabled = true; }
+}
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600); }
+function loadScript(src){ return new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar ' + src)); document.head.appendChild(s); }); }
+let xlsxP, zxP;
+const needXLSX = () => xlsxP ||= loadScript(XLSX_URL);
+const needZX = () => zxP ||= loadScript(ZXING_URL);
+
+/* ---------- Vista ---------- */
+let signedIn = false, currentView = 'admin';
+function setView(v){
+  currentView = v;
+  $('admin').hidden = !signedIn || v !== 'admin'; $('hugo').hidden = !signedIn || v !== 'hugo';
+  $('vAdmin').setAttribute('aria-pressed', v === 'admin'); $('vHugo').setAttribute('aria-pressed', v === 'hugo');
+  ls.set('vista', v);
+  if (v !== 'hugo') stopLive();
+}
+$('vAdmin').onclick = () => setView('admin');
+$('vHugo').onclick = () => setView('hugo');
+const hash = location.hash.replace('#','');
+setView(hash === 'hugo' || hash === 'admin' ? hash : (ls.get('vista') || (matchMedia('(max-width: 760px)').matches ? 'hugo' : 'admin')));
+
+const tabs = { tArmar:'pArmar', tRes:'pRes', tBajas:'pBajas', tCat:'pCat' };
+for (const t in tabs) $(t).onclick = () => { for (const u in tabs){ $(u).setAttribute('aria-selected', u === t); $(tabs[u]).hidden = u !== t; } };
+
+/* ---------- Catálogo ---------- */
+function rowToProd(r){ return { cod:String(r[0]), bar:String(r[1]||''), desc:String(r[2]||''), stock:+r[3]||0, ptocri:+r[4]||0, min:+r[5]||0, a:r[6]||'', b:r[7]||'', c:r[8]||'', equi:+r[9]||0 }; }
+function buildIndex(){
+  byBar = new Map(); byCod = new Map();
+  for (const p of catalog){
+    p._s = norm(p.desc + ' ' + p.cod + ' ' + p.bar);
+    byCod.set(p.cod, p);
+    if (p.bar){ const k = p.bar; if (!byBar.has(k)) byBar.set(k, []); byBar.get(k).push(p); }
+  }
+  const as = [...new Set(catalog.map(p => p.a).filter(Boolean))].sort();
+  $('fA').innerHTML = '<option value="">Todos</option>' + as.map(a => `<option>${esc(a)}</option>`).join('');
+  fillB();
+}
+function fillB(){
+  const a = $('fA').value;
+  const bs = [...new Set(catalog.filter(p => !a || p.a === a).map(p => p.b).filter(Boolean))].sort();
+  const keep = $('fB').value;
+  $('fB').innerHTML = '<option value="">Todos</option>' + bs.map(b => `<option>${esc(b)}</option>`).join('');
+  if (bs.includes(keep)) $('fB').value = keep;
+}
+let loadedVersion = null;
+async function loadCatalog(meta){
+  if (!meta){ catMeta = null; catalog = []; buildIndex(); renderAll(); return; }
+  if (meta.version === loadedVersion) return;
+  catMeta = meta; renderCatInfo('Cargando ' + fmt(meta.total) + ' productos…');
+  try {
+    const parts = await Promise.all(Array.from({length: meta.chunks}, (_, i) => db.doc('catalogo_partes/c' + i).get()));
+    const rows = [];
+    // Firestore no admite listas dentro de listas: cada parte guarda sus filas como texto JSON.
+    for (const s of parts) if (s.exists){ const d = s.data(); rows.push(...(d.rows || JSON.parse(d.json || '[]'))); }
+    catalog = rows.map(rowToProd); loadedVersion = meta.version;
+    buildIndex(); renderAll();
+  } catch (e) { renderCatInfo('No se pudo leer el stock: ' + (e.message || e.code)); }
+}
+function renderCatInfo(msg){
+  const el = $('catInfo');
+  if (msg){ el.textContent = msg; return; }
+  if (!catMeta){ el.innerHTML = '<strong>Todavía no hay stock cargado.</strong> Importá el Excel del sistema acá abajo.'; return; }
+  const d = new Date(catMeta.importado);
+  el.innerHTML = `<strong>${fmt(catalog.length)} productos</strong> cargados desde <span class="mono">${esc(catMeta.fuente)}</span> · importado el ${d.toLocaleDateString('es-AR')} a las ${d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})} hs. ${fmt(catalog.filter(p=>!p.bar).length)} productos no tienen código de barras (se buscan por descripción o código interno).`;
+}
+
+/* ---------- Importar Excel ---------- */
+$('impFile').onchange = () => $('bImp').disabled = !$('impFile').files.length || !db;
+$('bImp').onclick = async () => {
+  const f = $('impFile').files[0]; if (!f) return;
+  const st = $('impStatus'); st.className = 'status'; $('bImp').disabled = true;
+  try {
+    st.textContent = 'Leyendo el archivo…';
+    await needXLSX();
+    const wb = XLSX.read(await f.arrayBuffer(), { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
+    const hi = aoa.findIndex(r => r.some(c => norm(c).trim() === 'descripcio' || norm(c).trim() === 'descripcion'));
+    if (hi < 0) throw new Error('No encontré la fila de títulos (falta la columna "descripcio").');
+    const H = aoa[hi].map(c => norm(c).trim());
+    const col = (...names) => { for (const n of names){ const i = H.indexOf(n); if (i >= 0) return i; } return -1; };
+    const ci = { cod: col('codigo','cod','codigo interno'), bar: col('codigof','codigo de barras','barras','ean'), desc: col('descripcio','descripcion'), stock: col('stock'), ptocri: col('ptocri','punto critico'), min: col('min','minimo'), a: col('nombre_a','rubro'), b: col('nombre_b','subrubro'), c: col('nombre_c'), equi: col('equi') };
+    if (ci.cod < 0 || ci.desc < 0 || ci.stock < 0) throw new Error('Faltan columnas: necesito codigo, descripcio y stock.');
+    const g = (r, i) => i < 0 ? '' : r[i];
+    const rows = [];
+    for (const r of aoa.slice(hi + 1)){
+      const cod = String(g(r, ci.cod)).trim(); if (!cod) continue;
+      let bar = g(r, ci.bar); bar = typeof bar === 'number' ? bar.toFixed(0) : String(bar).trim();
+      rows.push([cod, bar, String(g(r, ci.desc)).trim(), +g(r, ci.stock) || 0, +g(r, ci.ptocri) || 0, +g(r, ci.min) || 0, String(g(r, ci.a)).trim(), String(g(r, ci.b)).trim(), String(g(r, ci.c)).trim(), +g(r, ci.equi) || 0]);
+    }
+    if (!rows.length) throw new Error('El archivo no tiene productos.');
+    const chunks = Math.ceil(rows.length / CHUNK);
+    for (let i = 0; i < chunks; i++){
+      st.textContent = `Guardando parte ${i + 1} de ${chunks}…`;
+      await db.doc('catalogo_partes/c' + i).set({ i, json: JSON.stringify(rows.slice(i * CHUNK, (i + 1) * CHUNK)) });
+    }
+    const old = catMeta?.chunks || 0;
+    for (let i = chunks; i < old; i++) await db.doc('catalogo_partes/c' + i).delete();
+    await db.doc('catalogo/meta').set({ version: Date.now(), total: rows.length, chunks, fuente: f.name, importado: new Date().toISOString() });
+    st.textContent = `Listo: ${fmt(rows.length)} productos importados.`;
+  } catch (e) { st.className = 'status err'; st.textContent = 'No se pudo importar: ' + (e.message || e.code); }
+  $('bImp').disabled = false;
+};
+
+/* ---------- Armar lista ---------- */
+function inListCods(){ const s = new Set(); for (const it of items.values()) s.add(it.cod); return s; }
+function filtered(){
+  const q = norm($('fQ').value).trim().split(/\s+/).filter(Boolean);
+  const a = $('fA').value, b = $('fB').value, low = $('fLow').value, N = +$('fN').value || 0;
+  const zero = $('fZero').checked, noList = $('fNoList').checked, inl = inListCods();
+  return catalog.filter(p => {
+    if (a && p.a !== a) return false;
+    if (b && p.b !== b) return false;
+    if (!zero && p.stock <= 0) return false;
+    if (low === 'ptocri' && !(p.ptocri > 0 && p.stock <= p.ptocri)) return false;
+    if (low === 'min' && !(p.min > 0 && p.stock <= p.min)) return false;
+    if (low === 'n' && !(p.stock <= N)) return false;
+    if (noList && inl.has(p.cod)) return false;
+    for (const w of q) if (!p._s.includes(w)) return false;
+    return true;
+  });
+}
+function renderArmar(){
+  const f = sortList(filtered(), SORTS.arm, (p, k) => k === 'rubro' ? (p.b || p.a) : p[k]), inl = inListCods();
+  markHeaders($('armHead'), SORTS.arm);
+  $('armCount').textContent = fmt(f.length); $('selCount').textContent = fmt(selected.size);
+  $('bAdd').disabled = !selected.size || !db || !canWrite;
+  if (!catalog.length){ $('armBody').innerHTML = `<tr><td colspan="8" class="empty">${db ? 'Todavía no hay stock cargado. Importalo en la pestaña “Stock del sistema”.' : 'El stock aparece cuando entrás con tu cuenta.'}</td></tr>`; $('bMore').hidden = true; $('moreInfo').textContent=''; return; }
+  const show = f.slice(0, armLimit);
+  $('armBody').innerHTML = show.map(p => `<tr class="${selected.has(p.cod) ? 'sel' : ''}" data-cod="${esc(p.cod)}">
+    <td><input type="checkbox" aria-label="Marcar ${esc(p.desc)}" ${selected.has(p.cod) ? 'checked' : ''}></td>
+    <td class="mono">${esc(p.cod)}</td><td class="mono">${esc(p.bar) || '<span class="muted">sin código</span>'}</td>
+    <td class="desc">${esc(p.desc)}</td><td class="muted">${esc(p.b || p.a)}</td>
+    <td class="r num ${p.stock <= 0 ? 'diff neg' : ''}">${fmt(p.stock)}</td><td class="r num muted">${fmt(p.ptocri)}</td>
+    <td>${inl.has(p.cod) ? '<span class="pill list">En la lista</span>' : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Ningún producto cumple el filtro.</td></tr>';
+  $('bMore').hidden = f.length <= armLimit;
+  $('moreInfo').textContent = f.length > armLimit ? `Se muestran ${fmt(armLimit)} de ${fmt(f.length)}. “Marcar los filtrados” marca todos, también los que no se ven.` : '';
+}
+$('armBody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-cod]'); if (!tr) return;
+  const cod = tr.dataset.cod;
+  if (selected.has(cod)) selected.delete(cod); else selected.add(cod);
+  renderArmar();
+});
+for (const id of ['fQ','fB','fN','fZero','fNoList']) $(id).addEventListener('input', () => { armLimit = 300; renderArmar(); });
+$('fA').addEventListener('input', () => { fillB(); armLimit = 300; renderArmar(); });
+$('fLow').addEventListener('input', () => { $('fNWrap').hidden = $('fLow').value !== 'n'; armLimit = 300; renderArmar(); });
+$('bMore').onclick = () => { armLimit += 500; renderArmar(); };
+$('bSelAll').onclick = () => { for (const p of filtered()) selected.add(p.cod); renderArmar(); };
+$('bSelNone').onclick = () => { selected.clear(); renderArmar(); };
+$('bAdd').onclick = async () => {
+  const inl = inListCods();
+  const toAdd = [...selected].filter(c => !inl.has(c)).map(c => byCod.get(c)).filter(Boolean);
+  const st = $('addStatus'); st.className = 'status';
+  if (!toAdd.length){ st.textContent = 'Los productos marcados ya estaban en la lista.'; return; }
+  if (items.size + toAdd.length > 1000){ st.className = 'status err'; st.textContent = `La lista admite hasta 1.000 productos (ya hay ${items.size}). Marcá menos productos.`; return; }
+  $('bAdd').disabled = true;
+  let n = 0;
+  try {
+    for (const p of toAdd){
+      await db.doc('items/' + docId(p.cod)).set({ cod:p.cod, bar:p.bar, desc:p.desc, rubro:p.b || p.a, stock:p.stock, equi:p.equi, contado:null, contadoEn:null, extra:false, agregado:new Date().toISOString() });
+      n++; if (n % 10 === 0) st.textContent = `Agregando ${n} de ${toAdd.length}…`;
+    }
+    selected.clear();
+    st.textContent = `Listo: ${n} productos agregados a la lista de Hugo.`;
+  } catch (e) { st.className = 'status err'; st.textContent = `Se agregaron ${n}. ${writeErr(e)}`; }
+  renderArmar();
+};
+
+/* ---------- Resultados ---------- */
+function stateOf(it){ if (it.contado == null) return 'pend'; const d = it.contado - it.stock; return d === 0 ? 'ok' : 'diff'; }
+function sortedItems(){ return [...items.entries()].map(([id, d]) => ({ id, ...d })).sort((x, y) => (x.desc || '').localeCompare(y.desc || '')); }
+function renderRes(){
+  const all = sortedItems();
+  const done = all.filter(i => i.contado != null), diff = done.filter(i => i.contado !== i.stock);
+  $('cntRes').textContent = all.length;
+  $('kList').textContent = fmt(all.length); $('kDone').textContent = fmt(done.length); $('kDiff').textContent = fmt(diff.length);
+  const net = done.reduce((s, i) => s + (i.contado - i.stock), 0); $('kNet').textContent = fmtDiff(net);
+  const ESTADO = { pend:'Pendiente', ok:'Coincide' };
+  const rows = sortList(all.filter(i => !resFilter || (resFilter === 'extra' ? i.extra : stateOf(i) === resFilter)), SORTS.res, (i, k) => {
+    if (k === 'diff') return i.contado == null ? null : i.contado - i.stock;
+    if (k === 'estado'){ const st = stateOf(i); return ESTADO[st] || (i.contado < i.stock ? 'Falta' : 'Sobra'); }
+    return i[k];
+  });
+  markHeaders($('resHead'), SORTS.res);
+  $('resBody').innerHTML = rows.map(i => {
+    const st = stateOf(i), d = i.contado == null ? null : i.contado - i.stock;
+    const pill = st === 'pend' ? '<span class="pill">Pendiente</span>' : st === 'ok' ? '<span class="pill ok">Coincide</span>' : d < 0 ? '<span class="pill bad">Falta</span>' : '<span class="pill over">Sobra</span>';
+    const when = i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+    return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado por Hugo</span>' : ''}</td>
+      <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}</td>
+      <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td>
+      <td><button class="btn danger" type="button" data-del="${esc(i.id)}" style="min-height:32px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Quitar</button></td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
+}
+$('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
+$('resBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-del]'); if (!b || !db) return;
+  b.disabled = true;
+  try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
+});
+function tableRows(){
+  const head = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Diferencia','Estado','Contado el','Agregado por Hugo'];
+  const rows = sortedItems().map(i => { const d = i.contado == null ? '' : i.contado - i.stock; const st = stateOf(i);
+    return [i.cod, i.bar, i.desc, i.rubro || '', i.stock, i.contado ?? '', d, st === 'pend' ? 'Pendiente' : st === 'ok' ? 'Coincide' : d < 0 ? 'Falta' : 'Sobra', i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR') : '', i.extra ? 'Si' : '']; });
+  return [head, ...rows];
+}
+$('bCopy').onclick = async () => {
+  const text = tableRows().map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
+  catch { const ta = $('copyArea'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('resStatus').textContent = 'Seleccioné la tabla abajo: copiala con Ctrl+C.'; }
+};
+$('bCsv').onclick = async () => {
+  const csv = '﻿' + tableRows().map(r => r.map(c => { const s = String(c); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
+  saveFile('conteo-stock-' + new Date().toISOString().slice(0, 10) + '.csv', csv);
+};
+function renderClear(confirming){
+  const w = $('clearWrap');
+  if (!confirming){ w.innerHTML = '<button class="btn danger" id="bClear" type="button">Vaciar lista</button>'; $('bClear').onclick = () => renderClear(true); $('bClear').disabled = !canWrite || !items.size; return; }
+  w.innerHTML = `<span class="confirm">¿Borrar los ${items.size} productos y sus conteos? <button class="btn danger" id="bClearYes" type="button">Sí, vaciar</button><button class="btn" id="bClearNo" type="button">No</button></span>`;
+  $('bClearNo').onclick = () => renderClear(false);
+  $('bClearYes').onclick = async () => {
+    $('bClearYes').disabled = true; let n = 0;
+    try { for (const id of [...items.keys()]){ await db.doc('items/' + id).delete(); n++; } $('resStatus').textContent = `Lista vaciada (${n} productos).`; }
+    catch (e) { $('resStatus').textContent = 'No se pudo vaciar del todo: ' + (e.message || e.code); }
+    renderClear(false);
+  };
+}
+renderClear(false);
+
+/* ---------- Celular: búsqueda y conteo ---------- */
+function lookup(code){
+  code = String(code).trim().replace(/\s+/g, '');
+  if (!code) return [];
+  const tries = [code]; if (/^\d{12}$/.test(code)) tries.push('0' + code); if (/^0\d{12}$/.test(code)) tries.push(code.slice(1));
+  for (const t of tries){ if (byBar.has(t)) return byBar.get(t); }
+  if (byCod.has(code)) return [byCod.get(code)];
+  // productos de la lista sin catálogo
+  for (const it of items.values()) if (it.bar === code || it.cod === code) return [itemAsProd(it)];
+  return [];
+}
+function itemAsProd(it){ return byCod.get(it.cod) || { cod:it.cod, bar:it.bar, desc:it.desc, stock:it.stock, equi:it.equi || 0 }; }
+function itemFor(cod){ return items.get(docId(cod)) || null; }
+
+function hStatus(msg, err){ const s = $('hStatus'); s.textContent = msg || ''; s.className = 'status' + (err ? ' err' : ''); }
+function handleCode(code, how){
+  const found = lookup(code);
+  $('hMatches').hidden = true;
+  if (!found.length){ current = null; renderCard(); hStatus(`El código ${code} no está en el stock del sistema. Probá escribir la descripción.`, true); buzz([80,60,80]); return; }
+  hStatus(how ? `Leído: ${code}` : ''); buzz(40);
+  if (found.length === 1) openProd(found[0]); else showMatches(found);
+}
+function showMatches(list){
+  const m = $('hMatches'); m.hidden = false;
+  m.innerHTML = list.slice(0, 30).map(p => `<button type="button" data-cod="${esc(p.cod)}"><span class="t"><span class="d">${esc(p.desc)}</span><br><span class="muted mono">${esc(p.cod)} · ${esc(p.bar)}</span></span>${itemFor(p.cod) ? '<span class="pill list">En la lista</span>' : ''}</button>`).join('') + (list.length > 30 ? `<div class="empty">Hay ${list.length} resultados. Escribí algo más preciso.</div>` : '');
+}
+$('hMatches').addEventListener('click', e => { const b = e.target.closest('[data-cod]'); if (!b) return; $('hMatches').hidden = true; openProd(byCod.get(b.dataset.cod) || itemAsProd(itemFor(b.dataset.cod))); });
+$('hSearchForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = $('hQ').value.trim(); if (!q) return;
+  if (/^\d{4,}$/.test(q) && lookup(q).length){ handleCode(q); $('hQ').value = ''; return; }
+  const ws = norm(q).split(/\s+/);
+  const pool = catalog.length ? catalog : [...items.values()].map(itemAsProd).map(p => ({ ...p, _s: norm(p.desc + ' ' + p.cod + ' ' + p.bar) }));
+  const res = pool.filter(p => ws.every(w => (p._s || '').includes(w)));
+  res.sort((x, y) => (itemFor(y.cod) ? 1 : 0) - (itemFor(x.cod) ? 1 : 0));
+  if (!res.length){ hStatus('No encontré productos con eso.', true); $('hMatches').hidden = true; return; }
+  hStatus(''); if (res.length === 1) openProd(res[0]); else showMatches(res);
+});
+function buzz(p){ try { navigator.vibrate && navigator.vibrate(p); } catch {} }
+
+function openProd(p){ current = p; renderCard(); $('hCard').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); const q = $('qty') || $('bQty'); if (q) setTimeout(() => q.focus(), 250); }
+function renderCard(){
+  const box = $('hCard');
+  if (!current){ box.innerHTML = ''; return; }
+  if (hMode === 'bajas') return renderBajaCard();
+  const p = current, it = itemFor(p.cod), stock = it ? it.stock : p.stock;
+  const equi = p.equi || it?.equi || 0;
+  box.innerHTML = `<div class="card">
+    <div class="cardhead"><div class="desc">${esc(p.desc)}</div><button class="btn" type="button" id="bCardClose" aria-label="Cerrar">✕</button></div>
+    ${it ? '' : '<div class="result over">Este producto no está en la lista pedida. Si lo contás, se agrega como extra.</div>'}
+    <div class="kv">
+      <div><div class="label">Cód. interno</div><div class="v big mono">${esc(p.cod)}</div></div>
+      <div><div class="label">Stock sistema</div><div class="v big num">${fmt(stock)}</div></div>
+      <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
+    </div>
+    ${it && it.contado != null ? `<div class="muted">Ya lo contaste: <strong>${fmt(it.contado)}</strong>. Si guardás de nuevo, se reemplaza.</div>` : ''}
+    <form class="qty" id="qtyForm" autocomplete="off">
+      <label class="label" for="qty">Cantidad contada (unidades)</label>
+      <input id="qty" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${it && it.contado != null ? it.contado : ''}">
+      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="qB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="qS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
+      <div id="qtyRes"></div>
+      <button class="btn big primary" type="submit" id="bSave" ${canWrite ? '' : 'disabled'}>Guardar conteo</button>
+    </form>
+  </div>`;
+  $('bCardClose').onclick = () => { current = null; renderCard(); };
+  const q = $('qty');
+  const upd = () => {
+    const v = q.value === '' ? null : Math.round(+q.value);
+    const r = $('qtyRes');
+    if (v == null || isNaN(v)){ r.innerHTML = ''; return; }
+    const d = v - stock;
+    r.innerHTML = d === 0 ? '<div class="result ok">Coincide con el sistema</div>' : d < 0 ? `<div class="result bad">Faltan ${fmt(-d)} contra el sistema</div>` : `<div class="result over">Sobran ${fmt(d)} contra el sistema</div>`;
+  };
+  q.addEventListener('input', upd); upd();
+  if (equi > 1){ const bb = () => { const b = +$('qB').value || 0, s = +$('qS').value || 0; if ($('qB').value !== '' || $('qS').value !== ''){ q.value = b * equi + s; upd(); } }; $('qB').addEventListener('input', bb); $('qS').addEventListener('input', bb); }
+  $('qtyForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (q.value === '' || isNaN(+q.value) || +q.value < 0){ hStatus('Cargá la cantidad contada.', true); q.focus(); return; }
+    const v = Math.round(+q.value);
+    $('bSave').disabled = true;
+    try {
+      const ref = db.doc('items/' + docId(p.cod)), now = new Date().toISOString();
+      if (it) await ref.update({ contado: v, contadoEn: now });
+      else await ref.set({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || '', stock:p.stock, equi:p.equi || 0, contado:v, contadoEn:now, extra:true, agregado:now });
+      const d = v - stock;
+      toast(`Guardado: ${fmt(v)} (${d === 0 ? 'coincide' : fmtDiff(d)})`); buzz(60);
+      current = null; renderCard(); hStatus('');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    } catch (err) { hStatus(writeErr(err), true); if ($('bSave')) $('bSave').disabled = !canWrite; }
+  });
+}
+function renderHugo(){
+  const all = sortedItems(), done = all.filter(i => i.contado != null);
+  $('hDone').textContent = done.length; $('hTotal').textContent = all.length;
+  $('hFill').style.width = all.length ? (done.length / all.length * 100) + '%' : '0';
+  const list = hFilter === 'pend' ? all.filter(i => i.contado == null) : done.sort((x, y) => (y.contadoEn || '').localeCompare(x.contadoEn || ''));
+  $('hList').innerHTML = list.map(i => {
+    const d = i.contado == null ? null : i.contado - i.stock;
+    const right = d == null ? `<span class="muted num">Sist. ${fmt(i.stock)}</span>` : `<span class="diff num ${d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmt(i.contado)} (${d === 0 ? 'OK' : fmtDiff(d)})</span>`;
+    return `<button type="button" data-cod="${esc(i.cod)}"><span class="t"><span class="d">${esc(i.desc)}</span><br><span class="muted mono">${esc(i.cod)}${i.bar ? ' · ' + esc(i.bar) : ' · sin código de barras'}</span></span>${right}</button>`;
+  }).join('') || `<div class="empty">${!db ? 'La lista aparece cuando entrás con tu cuenta.' : hFilter === 'pend' ? (all.length ? 'Contaste todo lo pedido.' : 'Todavía no hay productos para contar. Se arman desde el escritorio.') : 'Todavía no contaste nada.'}</div>`;
+  if (current && hMode === 'conteo') { const it = itemFor(current.cod); if (it && !document.activeElement?.closest?.('#hCard')) renderCard(); }
+}
+
+/* ---------- Roturas / bajas ---------- */
+const isToday = iso => { if (!iso) return false; const d = new Date(iso), n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
+const fmtWhen = iso => iso ? new Date(iso).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : '';
+function setMode(m){
+  hMode = m; ls.set('modo', m);
+  $('mConteo').setAttribute('aria-pressed', m === 'conteo'); $('mBajas').setAttribute('aria-pressed', m === 'bajas');
+  $('hConteoHead').hidden = $('hConteoList').hidden = m !== 'conteo';
+  $('hBajasHead').hidden = $('hBajasList').hidden = m !== 'bajas';
+  current = null; renderCard(); hStatus(''); $('hMatches').hidden = true;
+}
+$('mConteo').onclick = () => setMode('conteo');
+$('mBajas').onclick = () => setMode('bajas');
+
+function renderBajaCard(){
+  const p = current, box = $('hCard');
+  const equi = p.equi || 0;
+  const hoy = bajas.filter(b => b.cod === p.cod && isToday(b.fecha)).reduce((s, b) => s + (b.cantidad || 0), 0);
+  box.innerHTML = `<div class="card baja">
+    <div class="cardhead"><div class="desc">${esc(p.desc)}</div><button class="btn" type="button" id="bCardClose" aria-label="Cerrar">✕</button></div>
+    <div class="kv">
+      <div><div class="label">Cód. interno</div><div class="v big mono">${esc(p.cod)}</div></div>
+      <div><div class="label">Stock sistema</div><div class="v big num">${fmt(p.stock)}</div></div>
+      <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
+    </div>
+    ${hoy ? `<div class="muted">Hoy ya cargaste <strong>${fmt(hoy)}</strong> u. de este producto. Lo que cargues ahora se suma.</div>` : ''}
+    <form class="qty" id="bajaForm" autocomplete="off">
+      <span class="label">Motivo</span>
+      <div class="motivos" id="motivos">${MOTIVOS.map(m => `<button class="chip" type="button" data-m="${m}" aria-pressed="${m === motivo}">${m}</button>`).join('')}</div>
+      <label class="label" for="bQty">Unidades rotas / de baja</label>
+      <input id="bQty" type="number" inputmode="numeric" min="1" step="1" placeholder="0">
+      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="bqB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="bqS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
+      <input class="nota" id="bNota" type="text" maxlength="200" placeholder="Nota (opcional): dónde estaba, cómo se rompió…">
+      <button class="btn big" type="submit" id="bBajaSave" style="background:var(--bad);border-color:var(--bad);color:var(--surface)" ${canWrite ? '' : 'disabled'}>Guardar baja</button>
+    </form>
+  </div>`;
+  $('bCardClose').onclick = () => { current = null; renderCard(); };
+  $('motivos').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; motivo = b.dataset.m; for (const c of $('motivos').children) c.setAttribute('aria-pressed', c === b); });
+  const q = $('bQty');
+  if (equi > 1){ const bb = () => { const b = +$('bqB').value || 0, s = +$('bqS').value || 0; if ($('bqB').value !== '' || $('bqS').value !== '') q.value = b * equi + s; }; $('bqB').addEventListener('input', bb); $('bqS').addEventListener('input', bb); }
+  $('bajaForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = Math.round(+q.value);
+    if (q.value === '' || isNaN(v) || v <= 0){ hStatus('Cargá cuántas unidades están rotas o de baja.', true); q.focus(); return; }
+    $('bBajaSave').disabled = true;
+    try {
+      await db.collection('bajas').add({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || p.rubro || '', stock:p.stock, equi:p.equi || 0, cantidad:v, motivo, nota:$('bNota').value.trim(), fecha:new Date().toISOString() });
+      toast(`Baja guardada: ${fmt(v)} u. (${motivo})`); buzz(60);
+      current = null; renderCard(); hStatus('');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    } catch (err) { hStatus(writeErr(err), true); if ($('bBajaSave')) $('bBajaSave').disabled = !canWrite; }
+  });
+}
+function renderBajasPhone(){
+  const hoy = bajas.filter(b => isToday(b.fecha));
+  $('bHoyU').textContent = fmt(hoy.reduce((s, b) => s + (b.cantidad || 0), 0));
+  $('hBList').innerHTML = hoy.map(b => `<div class="row" style="padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:nowrap">
+      <span class="t" style="flex:1;min-width:0"><span style="font-weight:600;overflow-wrap:anywhere">${esc(b.desc)}</span><br><span class="muted">${esc(b.motivo)} · ${new Date(b.fecha).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})}${b.nota ? ' · ' + esc(b.nota) : ''}</span></span>
+      <strong class="num diff neg" style="white-space:nowrap">−${fmt(b.cantidad)}</strong>
+      <button class="btn" type="button" data-bdel="${esc(b.id)}" style="min-height:36px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Borrar</button></div>`).join('')
+    || `<div class="empty">${db ? 'Todavía no cargaste roturas hoy. Escaneá el código del producto roto para empezar.' : 'Las bajas aparecen cuando entrás con tu cuenta.'}</div>`;
+}
+async function delBaja(btn){
+  if (btn.dataset.armed !== '1'){ btn.dataset.armed = '1'; btn.textContent = '¿Borrar?'; btn.classList.add('danger'); setTimeout(() => { if (btn.isConnected){ btn.dataset.armed = ''; btn.textContent = 'Borrar'; btn.classList.remove('danger'); } }, 3500); return; }
+  btn.disabled = true;
+  try { await db.doc('bajas/' + btn.dataset.bdel).delete(); } catch (err) { toast(writeErr(err)); btn.disabled = !canWrite; }
+}
+$('hBList').addEventListener('click', e => { const b = e.target.closest('[data-bdel]'); if (b) delBaja(b); });
+
+function bajasPeriodo(){
+  const per = $('bPer').value;
+  if (!per) return bajas;
+  if (per === 'hoy') return bajas.filter(b => isToday(b.fecha));
+  const desde = Date.now() - (+per) * 86400000;
+  return bajas.filter(b => new Date(b.fecha).getTime() >= desde);
+}
+function bajasAgrupadas(list){
+  const m = new Map();
+  for (const b of list){
+    const g = m.get(b.cod) || { cod:b.cod, bar:b.bar, desc:b.desc, rubro:b.rubro, cantidad:0, cargas:0, motivos:new Set() };
+    g.cantidad += b.cantidad || 0; g.cargas++; g.motivos.add(b.motivo); m.set(b.cod, g);
+  }
+  return [...m.values()].sort((x, y) => y.cantidad - x.cantidad);
+}
+function bajasTabla(){
+  const list = bajasPeriodo();
+  if ($('bAgr').checked){
+    return [['Codigo interno','Codigo de barras','Descripcion','Rubro','Unidades de baja','Cargas','Motivos'],
+      ...bajasAgrupadas(list).map(g => [g.cod, g.bar, g.desc, g.rubro || '', g.cantidad, g.cargas, [...g.motivos].join(', ')])];
+  }
+  return [['Fecha','Codigo interno','Codigo de barras','Descripcion','Rubro','Motivo','Unidades','Nota'],
+    ...list.map(b => [new Date(b.fecha).toLocaleString('es-AR'), b.cod, b.bar, b.desc, b.rubro || '', b.motivo, b.cantidad, b.nota || ''])];
+}
+function renderBajasAdmin(){
+  const list = bajasPeriodo();
+  $('cntBajas').textContent = bajas.filter(b => isToday(b.fecha)).length;
+  $('kbN').textContent = fmt(list.length);
+  $('kbP').textContent = fmt(new Set(list.map(b => b.cod)).size);
+  $('kbU').textContent = fmt(list.reduce((s, b) => s + (b.cantidad || 0), 0));
+  $('kbH').textContent = fmt(bajas.filter(b => isToday(b.fecha)).reduce((s, b) => s + (b.cantidad || 0), 0));
+  const empty = `<tr><td colspan="8" class="empty">${bajas.length ? 'No hay bajas en este período.' : 'Todavía no hay roturas cargadas. Hugo las carga desde el celular, en “Roturas / bajas”.'}</td></tr>`;
+  const agr = $('bAgr').checked, s = SORTS.baj;
+  const allowed = agr ? ['cantidad','cargas','desc','cod','rubro','bar'] : ['fecha','cantidad','desc','cod','motivo','rubro','bar'];
+  if (!allowed.includes(s.k)){ s.k = agr ? 'cantidad' : 'fecha'; s.dir = -1; }
+  if ($('sBaj').dataset.mode !== String(agr)){ sortOptions($('sBaj'), s, allowed); $('sBaj').dataset.mode = String(agr); }
+  $('sBaj').value = s.k + ':' + s.dir;
+  if (agr){
+    $('bHead').innerHTML = '<tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="rubro">Rubro</th><th class="r" data-k="cantidad">Unidades</th><th class="r" data-k="cargas">Cargas</th><th>Motivos</th></tr>';
+    markHeaders($('bHead'), s);
+    $('bBody').innerHTML = sortList(bajasAgrupadas(list), s, (g, k) => g[k]).map(g => `<tr><td class="mono">${esc(g.cod)}</td><td class="mono">${esc(g.bar)}</td><td class="desc">${esc(g.desc)}</td><td class="muted">${esc(g.rubro)}</td><td class="r num diff neg">${fmt(g.cantidad)}</td><td class="r num">${g.cargas}</td><td>${[...g.motivos].map(m => `<span class="pill bad">${esc(m)}</span>`).join(' ')}</td></tr>`).join('') || empty;
+  } else {
+    $('bHead').innerHTML = '<tr><th data-k="fecha">Fecha</th><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="motivo">Motivo</th><th class="r" data-k="cantidad">Unidades</th><th>Nota</th><th></th></tr>';
+    markHeaders($('bHead'), s);
+    $('bBody').innerHTML = sortList([...list], s, (b, k) => b[k]).map(b => `<tr><td class="muted num" style="white-space:nowrap">${fmtWhen(b.fecha)}</td><td class="mono">${esc(b.cod)}</td><td class="mono">${esc(b.bar)}</td><td class="desc">${esc(b.desc)}</td><td><span class="pill bad">${esc(b.motivo)}</span></td><td class="r num diff neg">${fmt(b.cantidad)}</td><td class="muted">${esc(b.nota)}</td>
+      <td><button class="btn" type="button" data-bdel="${esc(b.id)}" style="min-height:32px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Borrar</button></td></tr>`).join('') || empty;
+  }
+  renderBClear(false);
+}
+$('bBody').addEventListener('click', e => { const b = e.target.closest('[data-bdel]'); if (b) delBaja(b); });
+$('bPer').addEventListener('input', renderBajasAdmin);
+$('bAgr').addEventListener('input', renderBajasAdmin);
+$('bBCopy').onclick = async () => {
+  const text = bajasTabla().map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
+  catch { const ta = $('bCopyArea'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('bStatus').textContent = 'Seleccioné la tabla abajo: copiala con Ctrl+C.'; }
+};
+$('bBCsv').onclick = async () => {
+  const csv = '﻿' + bajasTabla().map(r => r.map(c => { const s = String(c); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
+  saveFile('roturas-bajas-' + new Date().toISOString().slice(0, 10) + '.csv', csv);
+};
+function renderBClear(confirming){
+  const w = $('bClearWrap'), list = bajasPeriodo();
+  if (!confirming){ w.innerHTML = `<button class="btn danger" id="bBClear" type="button" ${!canWrite || !list.length ? 'disabled' : ''}>Borrar las del período</button>`; $('bBClear').onclick = () => renderBClear(true); return; }
+  w.innerHTML = `<span class="confirm">¿Borrar ${list.length} cargas de bajas? <button class="btn danger" id="bBClearYes" type="button">Sí, borrar</button><button class="btn" id="bBClearNo" type="button">No</button></span>`;
+  $('bBClearNo').onclick = () => renderBClear(false);
+  $('bBClearYes').onclick = async () => {
+    $('bBClearYes').disabled = true; let n = 0;
+    try { for (const b of list){ await db.doc('bajas/' + b.id).delete(); n++; } $('bStatus').textContent = `Se borraron ${n} cargas.`; }
+    catch (e) { $('bStatus').textContent = 'No se pudo borrar todo: ' + (e.message || e.code); }
+    renderBClear(false);
+  };
+}
+$('hChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; hFilter = b.dataset.f; for (const c of $('hChips').children) c.setAttribute('aria-pressed', c === b); renderHugo(); });
+$('hList').addEventListener('click', e => { const b = e.target.closest('[data-cod]'); if (!b) return; openProd(itemAsProd(itemFor(b.dataset.cod))); });
+
+/* ---------- Lectura de códigos ---------- */
+const FORMATS = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
+let detector;
+async function getDetector(){
+  if (detector !== undefined) return detector;
+  detector = null;
+  if ('BarcodeDetector' in window){
+    try { const sup = await BarcodeDetector.getSupportedFormats(); const f = FORMATS.filter(x => sup.includes(x)); if (f.length) detector = new BarcodeDetector({ formats: f }); } catch {}
+  }
+  return detector;
+}
+let zxReader;
+async function zxDecodeCanvas(canvas){
+  await needZX();
+  if (!zxReader){
+    const Z = ZXing, F = Z.BarcodeFormat;
+    const hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF]);
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    zxReader = new Z.MultiFormatReader(); zxReader.setHints(hints);
+  }
+  try {
+    const src = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+    return zxReader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(src))).getText();
+  } catch { return null; }
+}
+function drawTo(img, w, h, maxSide, rotate){
+  const s = Math.min(1, maxSide / Math.max(w, h));
+  const cw = Math.round(w * s), ch = Math.round(h * s);
+  const c = document.createElement('canvas');
+  c.width = rotate ? ch : cw; c.height = rotate ? cw : ch;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  if (rotate){ x.translate(ch, 0); x.rotate(Math.PI / 2); }
+  x.drawImage(img, 0, 0, cw, ch);
+  return c;
+}
+async function fileToImage(file){
+  if ('createImageBitmap' in window){ try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch {} try { return await createImageBitmap(file); } catch {} }
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('No se pudo abrir la foto')); i.src = URL.createObjectURL(file); });
+}
+async function decodeImage(img){
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight;
+  const det = await getDetector();
+  if (det){ try { const r = await det.detect(img); if (r.length) return r[0].rawValue; } catch {} }
+  for (const [side, rot] of [[1400, false], [2200, false], [1400, true], [900, false]]){
+    const t = await zxDecodeCanvas(drawTo(img, w, h, side, rot)); if (t) return t;
+  }
+  return null;
+}
+$('fotoInput').addEventListener('change', async () => {
+  const f = $('fotoInput').files[0]; $('fotoInput').value = '';
+  if (!f) return;
+  hStatus('Leyendo el código…');
+  try {
+    const img = await fileToImage(f);
+    const code = await decodeImage(img);
+    if (code) handleCode(code, true);
+    else hStatus('No pude leer el código en la foto. Acercate más, con buena luz y el código derecho, o escribilo abajo.', true);
+  } catch (e) { hStatus('No se pudo leer la foto: ' + (e.message || e), true); }
+});
+
+$('bLive').onclick = async () => {
+  hStatus('');
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('no');
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false });
+  } catch {
+    hStatus('La cámara en vivo no está permitida en esta vista. Usá “Sacar foto del código de barras”.', true); stream = null; return;
+  }
+  const v = $('liveVideo'); v.srcObject = stream; $('liveBox').hidden = false; $('bLive').hidden = true;
+  try { await v.play(); } catch {}
+  try { wake = await navigator.wakeLock?.request('screen'); } catch {}
+  const det = await getDetector();
+  let busy = false;
+  liveTimer = setInterval(async () => {
+    if (busy || !v.videoWidth) return; busy = true;
+    try {
+      let code = null;
+      if (det){ const r = await det.detect(v).catch(() => []); if (r.length) code = r[0].rawValue; }
+      else code = await zxDecodeCanvas(drawTo(v, v.videoWidth, v.videoHeight, 1000, false));
+      if (code){ stopLive(); handleCode(code, true); }
+    } finally { busy = false; }
+  }, det ? 180 : 350);
+};
+function stopLive(){
+  clearInterval(liveTimer); liveTimer = null;
+  if (stream){ for (const t of stream.getTracks()) t.stop(); stream = null; }
+  $('liveBox').hidden = true; $('bLive').hidden = false;
+  try { wake && wake.release(); } catch {} wake = null;
+}
+$('bLiveClose').onclick = stopLive;
+
+/* ---------- Render general ---------- */
+function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderBajasPhone(); renderBajasAdmin(); }
+sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
+sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn']);
+wireSort('arm', $('sArm'), $('armHead'), renderArmar);
+wireSort('res', $('sRes'), $('resHead'), renderRes);
+wireSort('baj', $('sBaj'), $('bHead'), renderBajasAdmin);
+setMode(hMode);
+renderAll();
+
+/* ---------- Conexión con la base compartida ---------- */
+(async () => {
+  const notice = $('dbNotice');
+  const warn = html => { notice.hidden = false; notice.className = 'notice warn'; notice.innerHTML = html; };
+  const cfg = window.FIREBASE_CONFIG;
+  if (!window.firebase || !cfg || !cfg.apiKey || /PEGAR/.test(cfg.apiKey)){
+    warn('<strong>Falta configurar Firebase.</strong> Completá el archivo <span class="mono">firebase-config.js</span> con los datos de tu proyecto (están en el README).');
+    return;
+  }
+  firebase.initializeApp(cfg);
+  const auth = firebase.auth();
+  const fs = firebase.firestore();
+  // Guarda una copia local para que la app siga andando si se corta el wifi del depósito.
+  fs.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+  $('bLogin').onclick = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try { await auth.signInWithPopup(provider); }
+    catch (e) {
+      if (/popup|operation-not-supported/.test(e.code || '')) { try { await auth.signInWithRedirect(provider); return; } catch (e2) { e = e2; } }
+      $('loginMsg').textContent = 'No se pudo entrar: ' + (e.message || e.code);
+    }
+  };
+  $('bLogout').onclick = () => auth.signOut();
+
+  let unsubs = [];
+  const denied = e => {
+    if (e.code === 'permission-denied') warn(`<strong>La cuenta ${esc(auth.currentUser?.email || '')} no está autorizada.</strong> El administrador tiene que agregar este mail en las reglas de Firestore. Mientras tanto podés tocar “Salir” y entrar con otra cuenta.`);
+    else warn('Se cortó la actualización en vivo (' + esc(e.code) + '). Recargá la página.');
+  };
+  auth.onAuthStateChanged(u => {
+    unsubs.forEach(f => f()); unsubs = [];
+    signedIn = !!u;
+    $('login').hidden = signedIn; $('who').hidden = !signedIn;
+    if (!u){ db = null; items = new Map(); bajas = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    $('whoMail').textContent = u.email || '';
+    db = fs; canWrite = true; notice.hidden = true; loadedVersion = null;
+    setView(currentView);
+    $('bImp').disabled = !$('impFile').files.length;
+    unsubs.push(db.doc('catalogo/meta').onSnapshot(s => loadCatalog(s.exists ? s.data() : null), denied));
+    unsubs.push(db.collection('items').limit(1000).onSnapshot(snap => {
+      items = new Map(snap.docs.map(d => [d.id, d.data()]));
+      renderArmar(); renderRes(); renderHugo(); renderClear(false);
+    }, denied));
+    unsubs.push(db.collection('bajas').orderBy('fecha', 'desc').limit(1000).onSnapshot(snap => {
+      bajas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderBajasPhone(); renderBajasAdmin();
+    }, denied));
+    renderAll();
+  });
+})();
+})();
+</script>
+</body>
+</html>

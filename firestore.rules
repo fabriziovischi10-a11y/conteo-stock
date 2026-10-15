@@ -1,0 +1,18 @@
+rules_version = '2';
+// Solo las cuentas de Google de esta lista pueden leer y guardar datos.
+// Reemplazá los mails de ejemplo y pegá estas reglas en Firestore > Reglas > Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function autorizado() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'mail-del-administrador@ejemplo.com',
+          'mail-de-hugo@gmail.com'
+        ];
+    }
+    match /{document=**} {
+      allow read, write: if autorizado();
+    }
+  }
+}
