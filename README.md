@@ -13,7 +13,9 @@ Los datos se guardan en **Firebase Firestore** y la página se publica gratis en
 1. Entrá a <https://console.firebase.google.com> y creá un proyecto (por ejemplo `conteo-stock`). Google Analytics no hace falta.
 2. **Firestore Database** > *Crear base de datos* > modo producción > ubicación `southamerica-east1` (San Pablo).
 3. **Authentication** > *Comenzar* > *Método de acceso* > activá **Google**.
-4. **Authentication** > *Configuración* > *Dominios autorizados* > agregá `TU-USUARIO.github.io` (el dominio de GitHub Pages).
+4. **Authentication** > *Configuración* > *Dominios autorizados* > agregá `fabriziovischi10-a11y.github.io` (el dominio de GitHub Pages).
+
+La página publicada: <https://fabriziovischi10-a11y.github.io/conteo-stock/>
 
 ### 2. Conectar la página con Firebase
 1. En Firebase: ⚙️ *Configuración del proyecto* > *Tus apps* > ícono `</>` (Web) > registrá la app.
