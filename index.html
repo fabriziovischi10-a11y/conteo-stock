@@ -131,8 +131,22 @@ td.desc{min-width:240px}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface-2);border-radius:14px;padding:5px}
 .modes button{border:0;background:transparent;border-radius:10px;min-height:48px;font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--muted);cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.modes button#mBajas[aria-pressed="true"]{background:var(--bad);color:var(--surface)}
+.modes{grid-template-columns:repeat(3,minmax(0,1fr))}
+.modes button{font-size:17px;line-height:1.1;padding:4px}
+.modes button#m_bajas[aria-pressed="true"]{background:var(--bad);color:var(--surface)}
+.modes button#m_sueltos[aria-pressed="true"]{background:var(--ok);color:var(--surface)}
 .card.baja{border-color:var(--bad)}
+.card.suelto{border-color:var(--ok)}
+.movrow{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.movrow:last-child{border-bottom:0}
+.movrow.sel{background:color-mix(in srgb,var(--tape) 14%,transparent)}
+.movrow .t{flex:1;min-width:0}
+.movrow .btn{min-height:36px;padding:4px 10px}
+tr.editrow{background:color-mix(in srgb,var(--tape) 12%,transparent)}
+tr.editrow input,tr.editrow select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 8px;font-size:14px;min-width:0}
+tr.editrow input[type="number"]{width:90px;text-align:right}
+.rowbtns{display:flex;gap:6px;flex-wrap:nowrap}
+.rowbtns .btn{min-height:32px;padding:4px 10px}
 .motivos{display:flex;gap:6px;flex-wrap:wrap}
 .motivos .chip{min-height:40px}
 .nota{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);width:100%;min-height:44px}
@@ -210,7 +224,8 @@ td.desc{min-width:240px}
     <nav class="tabs" role="tablist">
       <button role="tab" id="tArmar" aria-selected="true">Armar lista</button>
       <button role="tab" id="tRes" aria-selected="false">Resultados <span class="count num" id="cntRes">0</span></button>
-      <button role="tab" id="tBajas" aria-selected="false">Roturas / bajas <span class="count num" id="cntBajas">0</span></button>
+      <button role="tab" id="t_bajas" aria-selected="false">Roturas / bajas <span class="count num" id="cnt_bajas">0</span></button>
+      <button role="tab" id="t_sueltos" aria-selected="false">Suelto <span class="count num" id="cnt_sueltos">0</span></button>
       <button role="tab" id="tCat" aria-selected="false">Stock del sistema</button>
     </nav>
 
@@ -283,35 +298,9 @@ td.desc{min-width:240px}
       <textarea id="copyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
     </div>
 
-    <div id="pBajas" hidden>
-      <div class="tiles">
-        <div class="tile"><div class="label">Cargas</div><div class="v num" id="kbN">0</div></div>
-        <div class="tile"><div class="label">Productos distintos</div><div class="v num" id="kbP">0</div></div>
-        <div class="tile"><div class="label">Unidades dadas de baja</div><div class="v num" id="kbU">0</div></div>
-        <div class="tile"><div class="label">Unidades hoy</div><div class="v num" id="kbH">0</div></div>
-      </div>
-      <div class="bar">
-        <div class="row">
-          <label class="field" style="flex-direction:row;align-items:center;gap:8px"><span class="label">Período</span>
-            <select id="bPer"><option value="hoy">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="">Todo</option></select></label>
-          <label class="check"><input id="bAgr" type="checkbox"> Sumar por producto</label>
-          <label class="sortsel"><span class="label">Ordenar</span><select id="sBaj"></select></label>
-        </div>
-        <div class="row">
-          <button class="btn" id="bBCopy" type="button">Copiar para Excel</button>
-          <button class="btn" id="bBCsv" type="button">Descargar CSV</button>
-          <span id="bClearWrap"></span>
-        </div>
-      </div>
-      <div class="status" id="bStatus"></div>
-      <div class="tablebox">
-        <table>
-          <thead id="bHead"></thead>
-          <tbody id="bBody"></tbody>
-        </table>
-      </div>
-      <textarea id="bCopyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
-    </div>
+    <!-- Se completan desde el script (movPanelHTML), uno por tipo de carga -->
+    <div id="p_bajas" hidden></div>
+    <div id="p_sueltos" hidden></div>
 
     <div id="pCat" hidden>
       <div class="notice" id="catInfo">Cargando el stock del sistema…</div>
@@ -327,11 +316,12 @@ td.desc{min-width:240px}
     <div class="phone">
       <div class="modes" role="group" aria-label="Qué estás cargando">
         <button id="mConteo" type="button" aria-pressed="true">Conteo</button>
-        <button id="mBajas" type="button" aria-pressed="false">Roturas / bajas</button>
+        <button id="m_bajas" type="button" aria-pressed="false">Roturas / bajas</button>
+        <button id="m_sueltos" type="button" aria-pressed="false">Suelto</button>
       </div>
-      <div class="progress" id="hBajasHead" hidden>
-        <div class="row" style="justify-content:space-between"><h2>Roturas y bajas</h2><span class="num"><strong id="bHoyU">0</strong> u. hoy</span></div>
-        <div class="muted" style="margin-top:4px">Escaneá cada producto roto o dado de baja y cargá cuántas unidades. Podés cargar el mismo producto varias veces.</div>
+      <div class="progress" id="hMovHead" hidden>
+        <div class="row" style="justify-content:space-between"><h2 id="hMovTitle"></h2><span class="num"><strong id="hMovHoy">0</strong> u. hoy</span></div>
+        <div class="muted" style="margin-top:4px" id="hMovHint"></div>
       </div>
       <div class="progress" id="hConteoHead">
         <div class="row" style="justify-content:space-between"><h2>Conteo de Hugo</h2><span class="num"><strong id="hDone">0</strong> de <span id="hTotal">0</span></span></div>
@@ -365,9 +355,9 @@ td.desc{min-width:240px}
         </div>
         <div class="list" id="hList"></div>
       </div>
-      <div id="hBajasList" hidden>
+      <div id="hMovList" hidden>
         <h3 style="margin-bottom:8px">Cargadas hoy</h3>
-        <div class="list" id="hBList"></div>
+        <div class="list" id="hMovBody"></div>
       </div>
     </div>
   </section>
@@ -404,18 +394,35 @@ let armLimit = 300;
 let resFilter = '', hFilter = 'pend';
 let current = null; // producto abierto en el celular
 let stream = null, liveTimer = null, wake = null; // cámara en vivo
-let bajas = []; // cargas de roturas/bajas, más nuevas primero
-let hMode = ls.get('modo') === 'bajas' ? 'bajas' : 'conteo';
-let motivo = 'Rotura';
-const MOTIVOS = ['Rotura', 'Vencido', 'Mal estado', 'Otro'];
+// Cargas sueltas que se registran producto por producto desde el celular.
+// sign: -1 resta del stock (roturas), +1 suma (mercadería suelta que no figuraba).
+const KINDS = {
+  bajas: { col:'bajas', title:'Roturas y bajas', sign:-1, cls:'bad', card:'baja',
+    hint:'Escaneá cada producto roto o dado de baja y cargá cuántas unidades. Podés cargar el mismo producto varias veces.',
+    motivos:['Rotura', 'Vencido', 'Mal estado', 'Otro'], qtyLabel:'Unidades rotas / de baja', save:'Guardar baja', saved:'Baja guardada',
+    notaPh:'Nota (opcional): dónde estaba, cómo se rompió…', unitsTile:'Unidades dadas de baja', totalLabel:'Stock − bajas', csv:'roturas-bajas',
+    empty:'Todavía no cargaste roturas hoy. Escaneá el código del producto roto para empezar.',
+    adminEmpty:'Todavía no hay roturas cargadas. Se cargan desde el celular, en “Roturas / bajas”.' },
+  sueltos: { col:'sueltos', title:'Suelto', sign:1, cls:'ok', card:'suelto',
+    hint:'Escaneá la mercadería que encontraste y no figuraba en el stock (por ejemplo, con stock 0) y cargá cuántas unidades se suman.',
+    motivos:['Encontrado', 'Devolución', 'Sin ingreso', 'Otro'], qtyLabel:'Unidades para sumar al stock', save:'Guardar suelto', saved:'Suelto guardado',
+    notaPh:'Nota (opcional): dónde estaba, de dónde vino…', unitsTile:'Unidades sumadas', totalLabel:'Stock + sueltos', csv:'sueltos',
+    empty:'Todavía no cargaste sueltos hoy. Escaneá el código del producto encontrado para empezar.',
+    adminEmpty:'Todavía no hay sueltos cargados. Se cargan desde el celular, en “Suelto”.' },
+};
+const movs = { bajas: [], sueltos: [] }; // cargas de cada tipo, más nuevas primero
+const motivoSel = { bajas: 'Rotura', sueltos: 'Encontrado' };
+let hMode = KINDS[ls.get('modo')] ? ls.get('modo') : 'conteo';
+let editing = null;   // {kind, id}: carga que se corrige desde el celular
+let adminEdit = null; // {kind, id}: fila que se edita en el escritorio (kind 'items' = conteo)
 
 /* ---------- Orden de las tablas ---------- */
 // tipo: n = número (mayor a menor primero), t = texto (A→Z primero), d = fecha (más nuevos primero)
 const SORTS = {
   arm: { k:'stock', dir:-1, keys:{ stock:['Stock','n'], ptocri:['Punto crítico','n'], desc:['Descripción','t'], cod:['Código interno','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
   res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], bar:['Código de barras','t'] } },
-  baj: { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
 };
+for (const k in KINDS) SORTS['mov_' + k] = { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], stock:['Stock sistema','n'], total:[KINDS[k].totalLabel,'n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } };
 const cmpVal = (a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
 function sortList(list, s, get){
   return list.sort((x, y) => {
@@ -460,7 +467,7 @@ function setReadOnly(){
   if (!canWrite) return;
   canWrite = false;
   const n = $('dbNotice'); n.hidden = false; n.className = 'notice warn'; n.textContent = NO_PERM;
-  renderArmar(); renderRes(); renderBajasPhone(); renderBajasAdmin(); renderClear(false);
+  renderArmar(); renderRes(); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderClear(false);
   for (const id of ['bSave', 'bBajaSave']){ const b = $(id); if (b) b.disabled = true; }
 }
 function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600); }
@@ -483,7 +490,7 @@ $('vHugo').onclick = () => setView('hugo');
 const hash = location.hash.replace('#','');
 setView(hash === 'hugo' || hash === 'admin' ? hash : (ls.get('vista') || (matchMedia('(max-width: 760px)').matches ? 'hugo' : 'admin')));
 
-const tabs = { tArmar:'pArmar', tRes:'pRes', tBajas:'pBajas', tCat:'pCat' };
+const tabs = { tArmar:'pArmar', tRes:'pRes', t_bajas:'p_bajas', t_sueltos:'p_sueltos', tCat:'pCat' };
 for (const t in tabs) $(t).onclick = () => { for (const u in tabs){ $(u).setAttribute('aria-selected', u === t); $(tabs[u]).hidden = u !== t; } };
 
 /* ---------- Catálogo ---------- */
@@ -635,6 +642,7 @@ $('bAdd').onclick = async () => {
 function stateOf(it){ if (it.contado == null) return 'pend'; const d = it.contado - it.stock; return d === 0 ? 'ok' : 'diff'; }
 function sortedItems(){ return [...items.entries()].map(([id, d]) => ({ id, ...d })).sort((x, y) => (x.desc || '').localeCompare(y.desc || '')); }
 function renderRes(){
+  if (adminEdit?.kind === 'items' && editingRow()) return; // no pisar lo que se está escribiendo
   const all = sortedItems();
   const done = all.filter(i => i.contado != null), diff = done.filter(i => i.contado !== i.stock);
   $('cntRes').textContent = all.length;
@@ -651,14 +659,43 @@ function renderRes(){
     const st = stateOf(i), d = i.contado == null ? null : i.contado - i.stock;
     const pill = st === 'pend' ? '<span class="pill">Pendiente</span>' : st === 'ok' ? '<span class="pill ok">Coincide</span>' : d < 0 ? '<span class="pill bad">Falta</span>' : '<span class="pill over">Sobra</span>';
     const when = i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
-    return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado por Hugo</span>' : ''}</td>
+    if (adminEdit?.kind === 'items' && adminEdit.id === i.id){
+      return `<tr class="editrow"><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)}</td>
+        <td class="r num">${fmt(i.stock)}</td><td class="r"><input id="ae_cont" type="number" min="0" step="1" value="${i.contado ?? ''}" aria-label="Cantidad contada"></td>
+        <td colspan="4"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
+    }
+    return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado por Hugo</span>' : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
       <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}</td>
       <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td>
-      <td><button class="btn danger" type="button" data-del="${esc(i.id)}" style="min-height:32px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Quitar</button></td></tr>`;
+      <td><div class="rowbtns"><button class="btn" type="button" data-cedit="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-del="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
   }).join('') || `<tr><td colspan="9" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
 }
 $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
+// Corrige o borra un conteo. Un producto agregado por Hugo (extra) se quita de la lista al borrar su conteo.
+async function saveCount(id, value){
+  const it = items.get(id); if (!it) return;
+  const ref = db.doc('items/' + id), now = new Date().toISOString();
+  if (value == null && it.extra) return ref.delete();
+  return ref.update(value == null ? { contado:null, contadoEn:null, editado:now } : { contado:value, contadoEn:it.contadoEn || now, editado:now });
+}
+async function resEditAction(fn, msg){
+  try { await fn(); adminEdit = null; $('resStatus').textContent = msg; renderRes(); }
+  catch (err) { $('resStatus').textContent = writeErr(err); }
+}
+$('resBody').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'ae_cont'){ e.preventDefault(); e.target.closest('tr').querySelector('[data-csave]').click(); }
+  if (e.key === 'Escape' && adminEdit){ adminEdit = null; renderRes(); }
+});
 $('resBody').addEventListener('click', async e => {
+  const ce = e.target.closest('[data-cedit]');
+  if (ce){ adminEdit = { kind:'items', id:ce.dataset.cedit }; $('resStatus').textContent = ''; renderRes(); $('ae_cont')?.focus(); return; }
+  if (e.target.closest('[data-ccancel]')){ adminEdit = null; renderRes(); return; }
+  if (e.target.closest('[data-cclear]')) return resEditAction(() => saveCount(adminEdit.id, null), 'Conteo borrado: el producto vuelve a pendiente.');
+  if (e.target.closest('[data-csave]')){
+    const raw = $('ae_cont').value, v = Math.round(+raw);
+    if (raw === '' || isNaN(v) || v < 0){ $('resStatus').textContent = 'Cargá una cantidad válida (0 o más).'; return; }
+    return resEditAction(() => saveCount(adminEdit.id, v), 'Conteo corregido.');
+  }
   const b = e.target.closest('[data-del]'); if (!b || !db) return;
   b.disabled = true;
   try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
@@ -732,11 +769,11 @@ $('hSearchForm').addEventListener('submit', e => {
 });
 function buzz(p){ try { navigator.vibrate && navigator.vibrate(p); } catch {} }
 
-function openProd(p){ current = p; renderCard(); $('hCard').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); const q = $('qty') || $('bQty'); if (q) setTimeout(() => q.focus(), 250); }
+function openProd(p){ current = p; renderCard(); $('hCard').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); const q = $('qty') || $('mQty'); if (q) setTimeout(() => q.focus(), 250); }
 function renderCard(){
   const box = $('hCard');
   if (!current){ box.innerHTML = ''; return; }
-  if (hMode === 'bajas') return renderBajaCard();
+  if (KINDS[hMode]) return renderMovCard();
   const p = current, it = itemFor(p.cod), stock = it ? it.stock : p.stock;
   const equi = p.equi || it?.equi || 0;
   box.innerHTML = `<div class="card">
@@ -747,16 +784,24 @@ function renderCard(){
       <div><div class="label">Stock sistema</div><div class="v big num">${fmt(stock)}</div></div>
       <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
     </div>
-    ${it && it.contado != null ? `<div class="muted">Ya lo contaste: <strong>${fmt(it.contado)}</strong>. Si guardás de nuevo, se reemplaza.</div>` : ''}
+    ${it && it.contado != null ? `<div class="result over">Ya lo contaste: <strong>${fmt(it.contado)}</strong>. Para corregirlo, cambiá la cantidad y tocá “Guardar corrección”. Si te equivocaste de producto, borrá el conteo.</div>` : ''}
     <form class="qty" id="qtyForm" autocomplete="off">
       <label class="label" for="qty">Cantidad contada (unidades)</label>
       <input id="qty" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${it && it.contado != null ? it.contado : ''}">
       ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="qB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="qS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
       <div id="qtyRes"></div>
-      <button class="btn big primary" type="submit" id="bSave" ${canWrite ? '' : 'disabled'}>Guardar conteo</button>
+      <button class="btn big primary" type="submit" id="bSave" ${canWrite ? '' : 'disabled'}>${it && it.contado != null ? 'Guardar corrección' : 'Guardar conteo'}</button>
+      ${it && it.contado != null ? `<button class="btn danger" type="button" id="bCountClear" ${canWrite ? '' : 'disabled'}>${it.extra ? 'Borrar este conteo (era un producto equivocado)' : 'Borrar este conteo'}</button>` : ''}
     </form>
   </div>`;
   $('bCardClose').onclick = () => { current = null; renderCard(); };
+  if ($('bCountClear')) $('bCountClear').onclick = async e => {
+    const btn = e.currentTarget;
+    if (btn.dataset.armed !== '1'){ btn.dataset.armed = '1'; btn.textContent = 'Tocá de nuevo para borrar'; return; }
+    btn.disabled = true;
+    try { await saveCount(docId(p.cod), null); toast('Conteo borrado.'); current = null; renderCard(); hStatus(''); }
+    catch (err) { hStatus(writeErr(err), true); btn.disabled = !canWrite; }
+  };
   const q = $('qty');
   const upd = () => {
     const v = q.value === '' ? null : Math.round(+q.value);
@@ -796,145 +841,253 @@ function renderHugo(){
   if (current && hMode === 'conteo') { const it = itemFor(current.cod); if (it && !document.activeElement?.closest?.('#hCard')) renderCard(); }
 }
 
-/* ---------- Roturas / bajas ---------- */
+/* ---------- Roturas / bajas y Suelto ---------- */
 const isToday = iso => { if (!iso) return false; const d = new Date(iso), n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
 const fmtWhen = iso => iso ? new Date(iso).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : '';
+const fmtHora = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', hour12:false }) : '';
+const sumQty = list => list.reduce((s, m) => s + (m.cantidad || 0), 0);
+const signed = (k, n) => (KINDS[k].sign < 0 ? '−' : '+') + fmt(n);
+// Datos del producto que se guardan en cada carga.
+const prodFields = p => ({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || p.rubro || '', stock:p.stock || 0, equi:p.equi || 0 });
+const prodFromMov = m => byCod.get(m.cod) || { cod:m.cod, bar:m.bar, desc:m.desc, stock:m.stock, equi:m.equi || 0, rubro:m.rubro };
+const findMov = (k, id) => movs[k].find(m => m.id === id) || null;
+
 function setMode(m){
-  hMode = m; ls.set('modo', m);
-  $('mConteo').setAttribute('aria-pressed', m === 'conteo'); $('mBajas').setAttribute('aria-pressed', m === 'bajas');
+  hMode = m; ls.set('modo', m); editing = null;
+  $('mConteo').setAttribute('aria-pressed', m === 'conteo');
+  for (const k in KINDS) $('m_' + k).setAttribute('aria-pressed', m === k);
   $('hConteoHead').hidden = $('hConteoList').hidden = m !== 'conteo';
-  $('hBajasHead').hidden = $('hBajasList').hidden = m !== 'bajas';
+  $('hMovHead').hidden = $('hMovList').hidden = m === 'conteo';
   current = null; renderCard(); hStatus(''); $('hMatches').hidden = true;
+  renderMovPhone();
 }
 $('mConteo').onclick = () => setMode('conteo');
-$('mBajas').onclick = () => setMode('bajas');
+for (const k in KINDS) $('m_' + k).onclick = () => setMode(k);
 
-function renderBajaCard(){
-  const p = current, box = $('hCard');
+function renderMovCard(){
+  const k = hMode, K = KINDS[k], p = current, box = $('hCard');
+  const ed = editing && editing.kind === k ? findMov(k, editing.id) : null;
+  if (editing && !ed) editing = null;
   const equi = p.equi || 0;
-  const hoy = bajas.filter(b => b.cod === p.cod && isToday(b.fecha)).reduce((s, b) => s + (b.cantidad || 0), 0);
-  box.innerHTML = `<div class="card baja">
+  const hoy = sumQty(movs[k].filter(m => m.cod === p.cod && isToday(m.fecha) && m.id !== ed?.id));
+  let mot = ed ? ed.motivo : motivoSel[k];
+  box.innerHTML = `<div class="card ${K.card}">
     <div class="cardhead"><div class="desc">${esc(p.desc)}</div><button class="btn" type="button" id="bCardClose" aria-label="Cerrar">✕</button></div>
+    ${ed ? `<div class="result over">Estás corrigiendo la carga de las ${fmtHora(ed.fecha)}${ed.cod !== p.cod ? ` (antes era: ${esc(ed.desc)})` : ''}. Si el producto no es este, escaneá o buscá el correcto y se reemplaza.</div>` : ''}
     <div class="kv">
       <div><div class="label">Cód. interno</div><div class="v big mono">${esc(p.cod)}</div></div>
       <div><div class="label">Stock sistema</div><div class="v big num">${fmt(p.stock)}</div></div>
       <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
     </div>
-    ${hoy ? `<div class="muted">Hoy ya cargaste <strong>${fmt(hoy)}</strong> u. de este producto. Lo que cargues ahora se suma.</div>` : ''}
-    <form class="qty" id="bajaForm" autocomplete="off">
+    ${hoy ? `<div class="muted">Hoy ya cargaste <strong>${fmt(hoy)}</strong> u. de este producto${ed ? ' en otras cargas' : '. Lo que cargues ahora se suma'}.</div>` : ''}
+    <form class="qty" id="movForm" autocomplete="off">
       <span class="label">Motivo</span>
-      <div class="motivos" id="motivos">${MOTIVOS.map(m => `<button class="chip" type="button" data-m="${m}" aria-pressed="${m === motivo}">${m}</button>`).join('')}</div>
-      <label class="label" for="bQty">Unidades rotas / de baja</label>
-      <input id="bQty" type="number" inputmode="numeric" min="1" step="1" placeholder="0">
-      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="bqB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="bqS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
-      <input class="nota" id="bNota" type="text" maxlength="200" placeholder="Nota (opcional): dónde estaba, cómo se rompió…">
-      <button class="btn big" type="submit" id="bBajaSave" style="background:var(--bad);border-color:var(--bad);color:var(--surface)" ${canWrite ? '' : 'disabled'}>Guardar baja</button>
+      <div class="motivos" id="motivos">${K.motivos.map(m => `<button class="chip" type="button" data-m="${esc(m)}" aria-pressed="${m === mot}">${esc(m)}</button>`).join('')}</div>
+      <label class="label" for="mQty">${K.qtyLabel}</label>
+      <input id="mQty" type="number" inputmode="numeric" min="1" step="1" placeholder="0" value="${ed ? ed.cantidad : ''}">
+      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="mqB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="mqS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
+      <input class="nota" id="mNota" type="text" maxlength="200" placeholder="${K.notaPh}" value="${esc(ed ? ed.nota : '')}">
+      <button class="btn big" type="submit" id="bMovSave" style="background:var(--${K.cls});border-color:var(--${K.cls});color:var(--surface)" ${canWrite ? '' : 'disabled'}>${ed ? 'Guardar cambios' : K.save}</button>
+      ${ed ? '<button class="btn" type="button" id="bEditCancel">Cancelar corrección</button>' : ''}
     </form>
   </div>`;
-  $('bCardClose').onclick = () => { current = null; renderCard(); };
-  $('motivos').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; motivo = b.dataset.m; for (const c of $('motivos').children) c.setAttribute('aria-pressed', c === b); });
-  const q = $('bQty');
-  if (equi > 1){ const bb = () => { const b = +$('bqB').value || 0, s = +$('bqS').value || 0; if ($('bqB').value !== '' || $('bqS').value !== '') q.value = b * equi + s; }; $('bqB').addEventListener('input', bb); $('bqS').addEventListener('input', bb); }
-  $('bajaForm').addEventListener('submit', async e => {
+  const close = () => { current = null; editing = null; renderCard(); renderMovPhone(); };
+  $('bCardClose').onclick = close;
+  if (ed) $('bEditCancel').onclick = close;
+  $('motivos').addEventListener('click', e => {
+    const b = e.target.closest('[data-m]'); if (!b) return;
+    mot = b.dataset.m; if (!ed) motivoSel[k] = mot;
+    for (const c of $('motivos').children) c.setAttribute('aria-pressed', c === b);
+  });
+  const q = $('mQty');
+  if (equi > 1){ const bb = () => { const b = +$('mqB').value || 0, s = +$('mqS').value || 0; if ($('mqB').value !== '' || $('mqS').value !== '') q.value = b * equi + s; }; $('mqB').addEventListener('input', bb); $('mqS').addEventListener('input', bb); }
+  $('movForm').addEventListener('submit', async e => {
     e.preventDefault();
     const v = Math.round(+q.value);
-    if (q.value === '' || isNaN(v) || v <= 0){ hStatus('Cargá cuántas unidades están rotas o de baja.', true); q.focus(); return; }
-    $('bBajaSave').disabled = true;
+    if (q.value === '' || isNaN(v) || v <= 0){ hStatus('Cargá cuántas unidades.', true); q.focus(); return; }
+    $('bMovSave').disabled = true;
+    const nota = $('mNota').value.trim(), now = new Date().toISOString();
     try {
-      await db.collection('bajas').add({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || p.rubro || '', stock:p.stock, equi:p.equi || 0, cantidad:v, motivo, nota:$('bNota').value.trim(), fecha:new Date().toISOString() });
-      toast(`Baja guardada: ${fmt(v)} u. (${motivo})`); buzz(60);
-      current = null; renderCard(); hStatus('');
+      if (ed){
+        await db.doc(K.col + '/' + ed.id).update({ ...prodFields(p), cantidad:v, motivo:mot, nota, editado:now });
+        toast(`Carga corregida: ${signed(k, v)} u.`);
+      } else {
+        await db.collection(K.col).add({ ...prodFields(p), cantidad:v, motivo:mot, nota, fecha:now });
+        toast(`${K.saved}: ${fmt(v)} u. (${mot})`);
+      }
+      buzz(60); close(); hStatus('');
       window.scrollTo({ top: 0, behavior: 'auto' });
-    } catch (err) { hStatus(writeErr(err), true); if ($('bBajaSave')) $('bBajaSave').disabled = !canWrite; }
+    } catch (err) { hStatus(writeErr(err), true); if ($('bMovSave')) $('bMovSave').disabled = !canWrite; }
   });
 }
-function renderBajasPhone(){
-  const hoy = bajas.filter(b => isToday(b.fecha));
-  $('bHoyU').textContent = fmt(hoy.reduce((s, b) => s + (b.cantidad || 0), 0));
-  $('hBList').innerHTML = hoy.map(b => `<div class="row" style="padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:nowrap">
-      <span class="t" style="flex:1;min-width:0"><span style="font-weight:600;overflow-wrap:anywhere">${esc(b.desc)}</span><br><span class="muted">${esc(b.motivo)} · ${new Date(b.fecha).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})}${b.nota ? ' · ' + esc(b.nota) : ''}</span></span>
-      <strong class="num diff neg" style="white-space:nowrap">−${fmt(b.cantidad)}</strong>
-      <button class="btn" type="button" data-bdel="${esc(b.id)}" style="min-height:36px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Borrar</button></div>`).join('')
-    || `<div class="empty">${db ? 'Todavía no cargaste roturas hoy. Escaneá el código del producto roto para empezar.' : 'Las bajas aparecen cuando entrás con tu cuenta.'}</div>`;
+function renderMovPhone(){
+  const k = hMode; if (!KINDS[k]) return;
+  const K = KINDS[k], hoy = movs[k].filter(m => isToday(m.fecha));
+  $('hMovTitle').textContent = K.title; $('hMovHint').textContent = K.hint;
+  $('hMovHoy').textContent = fmt(sumQty(hoy));
+  $('hMovBody').innerHTML = hoy.map(m => `<div class="movrow${editing?.id === m.id ? ' sel' : ''}">
+      <span class="t"><span style="font-weight:600;overflow-wrap:anywhere">${esc(m.desc)}</span><br><span class="muted">${esc(m.motivo)} · ${fmtHora(m.fecha)}${m.nota ? ' · ' + esc(m.nota) : ''}${m.editado ? ' · corregida' : ''}</span></span>
+      <strong class="num diff ${K.sign < 0 ? 'neg' : 'zero'}" style="white-space:nowrap">${signed(k, m.cantidad)}</strong>
+      <button class="btn" type="button" data-medit="${esc(m.id)}" ${canWrite ? '' : 'disabled'}>Editar</button>
+      <button class="btn" type="button" data-mdel="${esc(m.id)}" data-kind="${k}" ${canWrite ? '' : 'disabled'}>Borrar</button></div>`).join('')
+    || `<div class="empty">${db ? K.empty : 'Las cargas aparecen cuando entrás con tu cuenta.'}</div>`;
 }
-async function delBaja(btn){
+// Borrar pide un segundo toque para confirmar.
+async function delMov(btn){
   if (btn.dataset.armed !== '1'){ btn.dataset.armed = '1'; btn.textContent = '¿Borrar?'; btn.classList.add('danger'); setTimeout(() => { if (btn.isConnected){ btn.dataset.armed = ''; btn.textContent = 'Borrar'; btn.classList.remove('danger'); } }, 3500); return; }
   btn.disabled = true;
-  try { await db.doc('bajas/' + btn.dataset.bdel).delete(); } catch (err) { toast(writeErr(err)); btn.disabled = !canWrite; }
+  try { await db.doc(KINDS[btn.dataset.kind].col + '/' + btn.dataset.mdel).delete(); } catch (err) { toast(writeErr(err)); btn.disabled = !canWrite; }
 }
-$('hBList').addEventListener('click', e => { const b = e.target.closest('[data-bdel]'); if (b) delBaja(b); });
+$('hMovBody').addEventListener('click', e => {
+  const d = e.target.closest('[data-mdel]'); if (d) return delMov(d);
+  const ed = e.target.closest('[data-medit]'); if (!ed) return;
+  const m = findMov(hMode, ed.dataset.medit); if (!m) return;
+  editing = { kind: hMode, id: m.id }; hStatus(''); renderMovPhone();
+  openProd(prodFromMov(m));
+});
 
-function bajasPeriodo(){
-  const per = $('bPer').value;
-  if (!per) return bajas;
-  if (per === 'hoy') return bajas.filter(b => isToday(b.fecha));
+/* Escritorio: una pestaña por tipo de carga */
+function movPanelHTML(k){
+  const K = KINDS[k];
+  return `<div class="tiles">
+      <div class="tile"><div class="label">Cargas</div><div class="v num" id="kN_${k}">0</div></div>
+      <div class="tile"><div class="label">Productos distintos</div><div class="v num" id="kP_${k}">0</div></div>
+      <div class="tile"><div class="label">${K.unitsTile}</div><div class="v num" id="kU_${k}">0</div></div>
+      <div class="tile"><div class="label">Unidades hoy</div><div class="v num" id="kH_${k}">0</div></div>
+    </div>
+    <div class="bar">
+      <div class="row">
+        <label class="field" style="flex-direction:row;align-items:center;gap:8px"><span class="label">Período</span>
+          <select id="per_${k}"><option value="hoy">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="">Todo</option></select></label>
+        <label class="check"><input id="agr_${k}" type="checkbox"> Sumar por producto</label>
+        <label class="sortsel"><span class="label">Ordenar</span><select id="srt_${k}"></select></label>
+      </div>
+      <div class="row">
+        <button class="btn" id="copy_${k}" type="button">Copiar para Excel</button>
+        <button class="btn" id="csv_${k}" type="button">Descargar CSV</button>
+        <span id="clr_${k}"></span>
+      </div>
+    </div>
+    <div class="status" id="st_${k}"></div>
+    <div class="tablebox"><table><thead id="head_${k}"></thead><tbody id="body_${k}"></tbody></table></div>
+    <textarea id="ta_${k}" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>`;
+}
+function movPeriodo(k){
+  const per = $('per_' + k).value, list = movs[k];
+  if (!per) return list;
+  if (per === 'hoy') return list.filter(m => isToday(m.fecha));
   const desde = Date.now() - (+per) * 86400000;
-  return bajas.filter(b => new Date(b.fecha).getTime() >= desde);
+  return list.filter(m => new Date(m.fecha).getTime() >= desde);
 }
-function bajasAgrupadas(list){
-  const m = new Map();
-  for (const b of list){
-    const g = m.get(b.cod) || { cod:b.cod, bar:b.bar, desc:b.desc, rubro:b.rubro, cantidad:0, cargas:0, motivos:new Set() };
-    g.cantidad += b.cantidad || 0; g.cargas++; g.motivos.add(b.motivo); m.set(b.cod, g);
+function movAgrupadas(k, list){
+  const g = new Map();
+  for (const m of list){
+    const cur = byCod.get(m.cod);
+    const r = g.get(m.cod) || { cod:m.cod, bar:m.bar, desc:m.desc, rubro:m.rubro, stock: cur ? cur.stock : (m.stock || 0), cantidad:0, cargas:0, motivos:new Set() };
+    r.cantidad += m.cantidad || 0; r.cargas++; r.motivos.add(m.motivo); g.set(m.cod, r);
   }
-  return [...m.values()].sort((x, y) => y.cantidad - x.cantidad);
+  for (const r of g.values()) r.total = r.stock + KINDS[k].sign * r.cantidad;
+  return [...g.values()];
 }
-function bajasTabla(){
-  const list = bajasPeriodo();
-  if ($('bAgr').checked){
-    return [['Codigo interno','Codigo de barras','Descripcion','Rubro','Unidades de baja','Cargas','Motivos'],
-      ...bajasAgrupadas(list).map(g => [g.cod, g.bar, g.desc, g.rubro || '', g.cantidad, g.cargas, [...g.motivos].join(', ')])];
+function movTabla(k){
+  const K = KINDS[k], list = movPeriodo(k);
+  if ($('agr_' + k).checked){
+    return [['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Unidades','Cargas', K.totalLabel,'Motivos'],
+      ...movAgrupadas(k, list).map(g => [g.cod, g.bar, g.desc, g.rubro || '', g.stock, g.cantidad, g.cargas, g.total, [...g.motivos].join(', ')])];
   }
-  return [['Fecha','Codigo interno','Codigo de barras','Descripcion','Rubro','Motivo','Unidades','Nota'],
-    ...list.map(b => [new Date(b.fecha).toLocaleString('es-AR'), b.cod, b.bar, b.desc, b.rubro || '', b.motivo, b.cantidad, b.nota || ''])];
+  return [['Fecha','Codigo interno','Codigo de barras','Descripcion','Rubro','Motivo','Unidades','Nota','Corregida'],
+    ...list.map(m => [new Date(m.fecha).toLocaleString('es-AR'), m.cod, m.bar, m.desc, m.rubro || '', m.motivo, m.cantidad, m.nota || '', m.editado ? new Date(m.editado).toLocaleString('es-AR') : ''])];
 }
-function renderBajasAdmin(){
-  const list = bajasPeriodo();
-  $('cntBajas').textContent = bajas.filter(b => isToday(b.fecha)).length;
-  $('kbN').textContent = fmt(list.length);
-  $('kbP').textContent = fmt(new Set(list.map(b => b.cod)).size);
-  $('kbU').textContent = fmt(list.reduce((s, b) => s + (b.cantidad || 0), 0));
-  $('kbH').textContent = fmt(bajas.filter(b => isToday(b.fecha)).reduce((s, b) => s + (b.cantidad || 0), 0));
-  const empty = `<tr><td colspan="8" class="empty">${bajas.length ? 'No hay bajas en este período.' : 'Todavía no hay roturas cargadas. Hugo las carga desde el celular, en “Roturas / bajas”.'}</td></tr>`;
-  const agr = $('bAgr').checked, s = SORTS.baj;
-  const allowed = agr ? ['cantidad','cargas','desc','cod','rubro','bar'] : ['fecha','cantidad','desc','cod','motivo','rubro','bar'];
+function editingRow(){ return !!document.activeElement?.closest?.('tr.editrow'); }
+function renderMovAdmin(k){
+  if (adminEdit?.kind === k && editingRow()) return; // no pisar lo que se está escribiendo
+  const K = KINDS[k], list = movPeriodo(k), hoy = movs[k].filter(m => isToday(m.fecha));
+  $('cnt_' + k).textContent = hoy.length;
+  $('kN_' + k).textContent = fmt(list.length);
+  $('kP_' + k).textContent = fmt(new Set(list.map(m => m.cod)).size);
+  $('kU_' + k).textContent = fmt(sumQty(list));
+  $('kH_' + k).textContent = fmt(sumQty(hoy));
+  const pill = K.sign < 0 ? 'bad' : 'ok', dcls = K.sign < 0 ? 'neg' : 'zero';
+  const agr = $('agr_' + k).checked, s = SORTS['mov_' + k];
+  const allowed = agr ? ['cantidad','cargas','stock','total','desc','cod','rubro','bar'] : ['fecha','cantidad','desc','cod','motivo','rubro','bar'];
   if (!allowed.includes(s.k)){ s.k = agr ? 'cantidad' : 'fecha'; s.dir = -1; }
-  if ($('sBaj').dataset.mode !== String(agr)){ sortOptions($('sBaj'), s, allowed); $('sBaj').dataset.mode = String(agr); }
-  $('sBaj').value = s.k + ':' + s.dir;
+  const sel = $('srt_' + k);
+  if (sel.dataset.mode !== String(agr)){ sortOptions(sel, s, allowed); sel.dataset.mode = String(agr); }
+  sel.value = s.k + ':' + s.dir;
+  const empty = `<tr><td colspan="9" class="empty">${movs[k].length ? 'No hay cargas en este período.' : K.adminEmpty}</td></tr>`;
   if (agr){
-    $('bHead').innerHTML = '<tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="rubro">Rubro</th><th class="r" data-k="cantidad">Unidades</th><th class="r" data-k="cargas">Cargas</th><th>Motivos</th></tr>';
-    markHeaders($('bHead'), s);
-    $('bBody').innerHTML = sortList(bajasAgrupadas(list), s, (g, k) => g[k]).map(g => `<tr><td class="mono">${esc(g.cod)}</td><td class="mono">${esc(g.bar)}</td><td class="desc">${esc(g.desc)}</td><td class="muted">${esc(g.rubro)}</td><td class="r num diff neg">${fmt(g.cantidad)}</td><td class="r num">${g.cargas}</td><td>${[...g.motivos].map(m => `<span class="pill bad">${esc(m)}</span>`).join(' ')}</td></tr>`).join('') || empty;
+    $('head_' + k).innerHTML = `<tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="rubro">Rubro</th><th class="r" data-k="stock">Stock sistema</th><th class="r" data-k="cantidad">Unidades</th><th class="r" data-k="cargas">Cargas</th><th class="r" data-k="total">${K.totalLabel}</th><th>Motivos</th></tr>`;
+    markHeaders($('head_' + k), s);
+    $('body_' + k).innerHTML = sortList(movAgrupadas(k, list), s, (g, key) => g[key]).map(g => `<tr><td class="mono">${esc(g.cod)}</td><td class="mono">${esc(g.bar)}</td><td class="desc">${esc(g.desc)}</td><td class="muted">${esc(g.rubro)}</td>
+      <td class="r num">${fmt(g.stock)}</td><td class="r num diff ${dcls}">${signed(k, g.cantidad)}</td><td class="r num">${g.cargas}</td><td class="r num"><strong>${fmt(g.total)}</strong></td>
+      <td>${[...g.motivos].map(m => `<span class="pill ${pill}">${esc(m)}</span>`).join(' ')}</td></tr>`).join('') || empty;
   } else {
-    $('bHead').innerHTML = '<tr><th data-k="fecha">Fecha</th><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="motivo">Motivo</th><th class="r" data-k="cantidad">Unidades</th><th>Nota</th><th></th></tr>';
-    markHeaders($('bHead'), s);
-    $('bBody').innerHTML = sortList([...list], s, (b, k) => b[k]).map(b => `<tr><td class="muted num" style="white-space:nowrap">${fmtWhen(b.fecha)}</td><td class="mono">${esc(b.cod)}</td><td class="mono">${esc(b.bar)}</td><td class="desc">${esc(b.desc)}</td><td><span class="pill bad">${esc(b.motivo)}</span></td><td class="r num diff neg">${fmt(b.cantidad)}</td><td class="muted">${esc(b.nota)}</td>
-      <td><button class="btn" type="button" data-bdel="${esc(b.id)}" style="min-height:32px;padding:4px 10px" ${canWrite ? '' : 'disabled'}>Borrar</button></td></tr>`).join('') || empty;
+    $('head_' + k).innerHTML = '<tr><th data-k="fecha">Fecha</th><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th data-k="motivo">Motivo</th><th class="r" data-k="cantidad">Unidades</th><th>Nota</th><th></th></tr>';
+    markHeaders($('head_' + k), s);
+    $('body_' + k).innerHTML = sortList([...list], s, (m, key) => m[key]).map(m => adminEdit?.kind === k && adminEdit.id === m.id
+      ? `<tr class="editrow" data-id="${esc(m.id)}"><td class="muted num" style="white-space:nowrap">${fmtWhen(m.fecha)}</td>
+          <td colspan="3"><input id="ae_code" type="text" value="${esc(m.cod)}" placeholder="Código interno o de barras" aria-label="Producto (código)" style="width:200px"> <span class="muted" id="ae_desc">${esc(m.desc)}</span></td>
+          <td><select id="ae_mot" aria-label="Motivo">${[...new Set([...K.motivos, m.motivo])].map(x => `<option${x === m.motivo ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></td>
+          <td class="r"><input id="ae_qty" type="number" min="1" step="1" value="${m.cantidad}" aria-label="Unidades"></td>
+          <td><input id="ae_nota" type="text" maxlength="200" value="${esc(m.nota)}" aria-label="Nota"></td>
+          <td><div class="rowbtns"><button class="btn primary" type="button" data-asave>Guardar</button><button class="btn" type="button" data-acancel>Cancelar</button></div></td></tr>`
+      : `<tr><td class="muted num" style="white-space:nowrap">${fmtWhen(m.fecha)}</td><td class="mono">${esc(m.cod)}</td><td class="mono">${esc(m.bar)}</td><td class="desc">${esc(m.desc)}${m.editado ? ' <span class="pill">Corregida</span>' : ''}</td><td><span class="pill ${pill}">${esc(m.motivo)}</span></td><td class="r num diff ${dcls}">${signed(k, m.cantidad)}</td><td class="muted">${esc(m.nota)}</td>
+          <td><div class="rowbtns"><button class="btn" type="button" data-aedit="${esc(m.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn" type="button" data-mdel="${esc(m.id)}" data-kind="${k}" ${canWrite ? '' : 'disabled'}>Borrar</button></div></td></tr>`).join('') || empty;
   }
-  renderBClear(false);
+  renderMovClear(k, false);
 }
-$('bBody').addEventListener('click', e => { const b = e.target.closest('[data-bdel]'); if (b) delBaja(b); });
-$('bPer').addEventListener('input', renderBajasAdmin);
-$('bAgr').addEventListener('input', renderBajasAdmin);
-$('bBCopy').onclick = async () => {
-  const text = bajasTabla().map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
-  try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
-  catch { const ta = $('bCopyArea'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('bStatus').textContent = 'Seleccioné la tabla abajo: copiala con Ctrl+C.'; }
-};
-$('bBCsv').onclick = async () => {
-  const csv = '﻿' + bajasTabla().map(r => r.map(c => { const s = String(c); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
-  saveFile('roturas-bajas-' + new Date().toISOString().slice(0, 10) + '.csv', csv);
-};
-function renderBClear(confirming){
-  const w = $('bClearWrap'), list = bajasPeriodo();
-  if (!confirming){ w.innerHTML = `<button class="btn danger" id="bBClear" type="button" ${!canWrite || !list.length ? 'disabled' : ''}>Borrar las del período</button>`; $('bBClear').onclick = () => renderBClear(true); return; }
-  w.innerHTML = `<span class="confirm">¿Borrar ${list.length} cargas de bajas? <button class="btn danger" id="bBClearYes" type="button">Sí, borrar</button><button class="btn" id="bBClearNo" type="button">No</button></span>`;
-  $('bBClearNo').onclick = () => renderBClear(false);
-  $('bBClearYes').onclick = async () => {
-    $('bBClearYes').disabled = true; let n = 0;
-    try { for (const b of list){ await db.doc('bajas/' + b.id).delete(); n++; } $('bStatus').textContent = `Se borraron ${n} cargas.`; }
-    catch (e) { $('bStatus').textContent = 'No se pudo borrar todo: ' + (e.message || e.code); }
-    renderBClear(false);
+// Busca el producto escrito en la fila de edición: un único resultado por código de barras o interno.
+function prodByCode(code){ const f = lookup(code); return f.length ? f[0] : null; }
+async function saveMovEdit(k){
+  const K = KINDS[k], m = findMov(k, adminEdit.id), st = $('st_' + k);
+  if (!m){ adminEdit = null; renderMovAdmin(k); return; }
+  const code = $('ae_code').value.trim(), v = Math.round(+$('ae_qty').value);
+  const p = code === m.cod ? prodFromMov(m) : prodByCode(code);
+  if (!p){ st.className = 'status err'; st.textContent = `No encontré el producto con código ${code}.`; return; }
+  if (!(v > 0)){ st.className = 'status err'; st.textContent = 'Las unidades tienen que ser mayores a 0.'; return; }
+  try {
+    await db.doc(K.col + '/' + m.id).update({ ...prodFields(p), cantidad:v, motivo:$('ae_mot').value, nota:$('ae_nota').value.trim(), editado:new Date().toISOString() });
+    st.className = 'status'; st.textContent = 'Carga corregida.';
+    adminEdit = null; renderMovAdmin(k);
+  } catch (err) { st.className = 'status err'; st.textContent = writeErr(err); }
+}
+function renderMovClear(k, confirming){
+  const w = $('clr_' + k), list = movPeriodo(k);
+  if (!confirming){ w.innerHTML = `<button class="btn danger" type="button" ${!canWrite || !list.length ? 'disabled' : ''}>Borrar las del período</button>`; w.firstChild.onclick = () => renderMovClear(k, true); return; }
+  w.innerHTML = `<span class="confirm">¿Borrar ${list.length} cargas? <button class="btn danger" type="button" data-yes>Sí, borrar</button><button class="btn" type="button" data-no>No</button></span>`;
+  w.querySelector('[data-no]').onclick = () => renderMovClear(k, false);
+  w.querySelector('[data-yes]').onclick = async e => {
+    e.target.disabled = true; let n = 0;
+    try { for (const m of list){ await db.doc(KINDS[k].col + '/' + m.id).delete(); n++; } $('st_' + k).textContent = `Se borraron ${n} cargas.`; }
+    catch (err) { $('st_' + k).textContent = 'No se pudo borrar todo: ' + writeErr(err); }
+    renderMovClear(k, false);
+  };
+}
+for (const k in KINDS){
+  $('p_' + k).innerHTML = movPanelHTML(k);
+  $('body_' + k).addEventListener('click', e => {
+    const d = e.target.closest('[data-mdel]'); if (d) return delMov(d);
+    const ed = e.target.closest('[data-aedit]');
+    if (ed){ adminEdit = { kind:k, id:ed.dataset.aedit }; $('st_' + k).textContent = ''; renderMovAdmin(k); $('ae_qty')?.focus(); return; }
+    if (e.target.closest('[data-acancel]')){ adminEdit = null; renderMovAdmin(k); return; }
+    if (e.target.closest('[data-asave]')) saveMovEdit(k);
+  });
+  $('body_' + k).addEventListener('input', e => {
+    if (e.target.id !== 'ae_code') return;
+    const p = prodByCode(e.target.value.trim());
+    $('ae_desc').textContent = p ? p.desc : 'Código no encontrado';
+  });
+  $('body_' + k).addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest('tr.editrow')){ e.preventDefault(); saveMovEdit(k); } if (e.key === 'Escape' && adminEdit){ adminEdit = null; renderMovAdmin(k); } });
+  $('per_' + k).addEventListener('input', () => renderMovAdmin(k));
+  $('agr_' + k).addEventListener('input', () => renderMovAdmin(k));
+  $('copy_' + k).onclick = async () => {
+    const text = movTabla(k).map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
+    catch { const ta = $('ta_' + k); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('st_' + k).textContent = 'Seleccioné la tabla abajo: copiala con Ctrl+C.'; }
+  };
+  $('csv_' + k).onclick = () => {
+    const csv = '﻿' + movTabla(k).map(r => r.map(c => { const s = String(c); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
+    saveFile(KINDS[k].csv + '-' + new Date().toISOString().slice(0, 10) + '.csv', csv);
   };
 }
 $('hChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; hFilter = b.dataset.f; for (const c of $('hChips').children) c.setAttribute('aria-pressed', c === b); renderHugo(); });
@@ -1033,12 +1186,12 @@ function stopLive(){
 $('bLiveClose').onclick = stopLive;
 
 /* ---------- Render general ---------- */
-function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderBajasPhone(); renderBajasAdmin(); }
+function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); }
 sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
 sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn']);
 wireSort('arm', $('sArm'), $('armHead'), renderArmar);
 wireSort('res', $('sRes'), $('resHead'), renderRes);
-wireSort('baj', $('sBaj'), $('bHead'), renderBajasAdmin);
+for (const k in KINDS) wireSort('mov_' + k, $('srt_' + k), $('head_' + k), () => renderMovAdmin(k));
 setMode(hMode);
 renderAll();
 
@@ -1077,7 +1230,7 @@ renderAll();
     unsubs.forEach(f => f()); unsubs = [];
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
-    if (!u){ db = null; items = new Map(); bajas = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    if (!u){ db = null; items = new Map(); for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
     $('whoMail').textContent = u.email || '';
     db = fs; canWrite = true; notice.hidden = true; loadedVersion = null;
     setView(currentView);
@@ -1087,9 +1240,10 @@ renderAll();
       items = new Map(snap.docs.map(d => [d.id, d.data()]));
       renderArmar(); renderRes(); renderHugo(); renderClear(false);
     }, denied));
-    unsubs.push(db.collection('bajas').orderBy('fecha', 'desc').limit(1000).onSnapshot(snap => {
-      bajas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderBajasPhone(); renderBajasAdmin();
+    for (const k in KINDS) unsubs.push(db.collection(KINDS[k].col).orderBy('fecha', 'desc').limit(1000).onSnapshot(snap => {
+      movs[k] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (hMode === k){ renderMovPhone(); if (editing && current && !document.activeElement?.closest?.('#hCard')) renderCard(); }
+      renderMovAdmin(k);
     }, denied));
     renderAll();
   });

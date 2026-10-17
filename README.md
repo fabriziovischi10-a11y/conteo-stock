@@ -35,6 +35,11 @@ Entrá a la página desde la computadora, pestaña **Stock del sistema**, elegí
 1. **Escritorio > Armar lista:** filtrá (rubro, stock bajo, búsqueda), ordená (por ejemplo stock de mayor a menor), marcá productos y tocá **Agregar a la lista de Hugo**.
 2. **Celular > Conteo:** Hugo toca **Escanear código de barras**, apunta al código, carga lo que contó y guarda. La app le muestra si falta, sobra o coincide.
 3. **Celular > Roturas / bajas:** Hugo escanea cada producto roto, elige el motivo, carga las unidades y guarda. Puede cargar el mismo producto varias veces.
-4. **Escritorio > Resultados** y **Roturas / bajas:** se actualizan en vivo. Se pueden copiar para Excel o descargar en CSV.
+4. **Celular > Suelto:** igual que roturas, pero para mercadería que apareció y no figuraba en el stock (por ejemplo, con stock 0). Las unidades se suman.
+5. **Escritorio > Resultados**, **Roturas / bajas** y **Suelto:** se actualizan en vivo. Se pueden copiar para Excel o descargar en CSV. Con "Sumar por producto" se ve el stock del sistema, las unidades cargadas y el stock resultante.
+
+### Corregir errores
+- **Roturas y sueltos:** botón **Editar** en cada carga (en el celular, en "Cargadas hoy"; en el escritorio, en la tabla). Se puede cambiar la cantidad, el motivo, la nota y el producto: en el celular, mientras se corrige, escaneá o buscá el producto correcto; en el escritorio, escribí su código. **Borrar** pide un segundo toque.
+- **Conteos:** en el celular, tocá el producto en "Ya contados" (o escanealo de nuevo), cambiá la cantidad y tocá **Guardar corrección**, o **Borrar este conteo** si era otro producto. En el escritorio, botón **Editar** en Resultados.
 
 Si la cámara en vivo no lee un código, está el botón **Sacar foto del código**, o se puede escribir el código o la descripción.
