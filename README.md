@@ -38,6 +38,12 @@ Entrá a la página desde la computadora, pestaña **Stock del sistema**, elegí
 4. **Celular > Suelto:** igual que roturas, pero para mercadería que apareció y no figuraba en el stock (por ejemplo, con stock 0). Las unidades se suman.
 5. **Escritorio > Resultados**, **Roturas / bajas** y **Suelto:** se actualizan en vivo. Se pueden copiar para Excel o descargar en CSV. Con "Sumar por producto" se ve el stock del sistema, las unidades cargadas y el stock resultante.
 
+### Varios usuarios en el celular
+Todos los que entran en la vista **Celular** (por ejemplo Hugo y Sergio) comparten la misma lista de conteo y cargan roturas y sueltos por igual. Cada carga guarda quién la hizo (el primer nombre de su cuenta de Google): se ve en el historial del celular, en la columna **Contó** de Resultados y en la columna **Cargó** de Roturas / Suelto, donde además se puede filtrar por persona.
+
+### Historial
+En el celular, debajo de Roturas / bajas y de Suelto, está el **Historial** con el filtro Hoy / 7 días / 30 días / Todo. En el escritorio, esas pestañas muestran por defecto **todo el historial**, con filtros por período y por quién cargó.
+
 ### Corregir errores
 - **Roturas y sueltos:** botón **Editar** en cada carga (en el celular, en "Cargadas hoy"; en el escritorio, en la tabla). Se puede cambiar la cantidad, el motivo, la nota y el producto: en el celular, mientras se corrige, escaneá o buscá el producto correcto; en el escritorio, escribí su código. **Borrar** pide un segundo toque.
 - **Conteos:** en el celular, tocá el producto en "Ya contados" (o escanealo de nuevo), cambiá la cantidad y tocá **Guardar corrección**, o **Borrar este conteo** si era otro producto. En el escritorio, botón **Editar** en Resultados.
