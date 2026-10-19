@@ -300,6 +300,16 @@ tr.sel{background:color-mix(in srgb,var(--tape) 14%,transparent)}
 .card.neg{border-top-color:var(--chrome-2)}
 .kv div{background:var(--surface-2);border-radius:10px}
 .qty > input[type="number"]{border-radius:14px;transition:border-color .15s ease,box-shadow .15s ease}
+/* Conteo dividido: apto (verde) a la izquierda, no apto (rojo, va a roturas) a la derecha */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.split .half{display:flex;flex-direction:column;gap:6px;border-radius:14px;padding:8px;background:var(--surface-2);min-width:0}
+.split .half > span{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+.split .ok > span{color:var(--ok)}
+.split .bad > span{color:var(--bad)}
+.split input{font-family:var(--font-display);font-size:38px;font-weight:700;text-align:center;border:2px solid var(--line);border-radius:12px;padding:6px;background:var(--bg);width:100%;min-width:0;transition:border-color .15s ease,box-shadow .15s ease}
+.split .ok input:focus{outline:none;border-color:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+.split .bad input:focus{outline:none;border-color:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 22%,transparent)}
+tr.editrow label input{margin-left:4px}
 .result{border-radius:12px}
 .list button{transition:background-color .15s ease}
 .list button:active{background:var(--surface-2)}
@@ -1003,30 +1013,43 @@ function renderRes(){
     const when = i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
     if (adminEdit?.kind === 'items' && adminEdit.id === i.id){
       return `<tr class="editrow"><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)}</td>
-        <td class="r num">${fmt(i.stock)}</td><td class="r"><input id="ae_cont" type="number" min="0" step="1" value="${i.contado ?? ''}" aria-label="Cantidad contada"></td>
-        <td colspan="5"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
+        <td class="r num">${fmt(i.stock)}</td><td class="r" colspan="2"><div class="rowbtns" style="justify-content:flex-end"><label class="muted">Apto <input id="ae_cont" type="number" min="0" step="1" value="${i.contado != null ? (i.apto ?? i.contado) : ''}" aria-label="Cantidad apta"></label><label class="muted">No apto <input id="ae_noapto" type="number" min="0" step="1" value="${i.noApto || ''}" aria-label="Cantidad no apta"></label></div></td>
+        <td colspan="4"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
     }
     return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
-      <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}</td>
+      <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}${i.noApto ? `<br><span class="muted" style="color:var(--bad)">${fmt(i.noApto)} no apto</span>` : ''}</td>
       <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
       <td><div class="rowbtns"><button class="btn" type="button" data-cedit="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-del="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
   }).join('') || `<tr><td colspan="10" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
 }
 $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
 // Corrige o borra un conteo. Un producto agregado desde el celular (extra) se quita de la lista al borrar su conteo.
-async function saveCount(id, value){
+// apto null = borrar el conteo. El no apto se refleja en Roturas / bajas (ver syncNoApto).
+async function saveCount(id, apto, noApto = 0){
   const it = items.get(id); if (!it) return;
-  const ref = db.doc('items/' + id), now = new Date().toISOString();
-  if (value == null && it.extra) return ref.delete();
-  return ref.update(value == null ? { contado:null, contadoEn:null, contadoPor:null, contadoPorMail:null, editado:now, editadoPor:me.name }
-    : { contado:value, contadoEn:it.contadoEn || now, contadoPor:it.contadoPor || me.name, contadoPorMail:it.contadoPorMail || me.email, editado:now, editadoPor:me.name });
+  const ref = db.doc('items/' + id), now = new Date().toISOString(), p = itemAsProd(it);
+  if (apto == null){
+    await syncNoApto(id, p, 0);
+    if (it.extra) return ref.delete();
+    return ref.update({ contado:null, apto:null, noApto:null, contadoEn:null, contadoPor:null, contadoPorMail:null, editado:now, editadoPor:me.name });
+  }
+  await ref.update({ contado:apto + noApto, apto, noApto, contadoEn:it.contadoEn || now, contadoPor:it.contadoPor || me.name, contadoPorMail:it.contadoPorMail || me.email, editado:now, editadoPor:me.name });
+  await syncNoApto(id, p, noApto);
+}
+// Cada conteo tiene a lo sumo una carga en Roturas / bajas con su no apto (id fijo "cnt_<producto>"),
+// así corregir o borrar el conteo actualiza o quita esa rotura en vez de duplicarla.
+async function syncNoApto(itemId, p, noApto){
+  const ref = db.doc(KINDS.bajas.col + '/cnt_' + itemId), prev = findMov('bajas', 'cnt_' + itemId), now = new Date().toISOString();
+  if (!(noApto > 0)) return ref.delete(); // borrar un documento que no existe no da error
+  return ref.set({ ...prodFields(p), cantidad:noApto, motivo:'No apto (conteo)', nota:'Cargado desde el conteo', origen:'conteo',
+    fecha: prev?.fecha || now, por: prev?.por || me.name, porMail: prev?.porMail || me.email, ...(prev ? { editado:now, editadoPor:me.name } : {}) });
 }
 async function resEditAction(fn, msg){
   try { await fn(); adminEdit = null; $('resStatus').textContent = msg; renderRes(); }
   catch (err) { $('resStatus').textContent = writeErr(err); }
 }
 $('resBody').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.id === 'ae_cont'){ e.preventDefault(); e.target.closest('tr').querySelector('[data-csave]').click(); }
+  if (e.key === 'Enter' && (e.target.id === 'ae_cont' || e.target.id === 'ae_noapto')){ e.preventDefault(); e.target.closest('tr').querySelector('[data-csave]').click(); }
   if (e.key === 'Escape' && adminEdit){ adminEdit = null; renderRes(); }
 });
 $('resBody').addEventListener('click', async e => {
@@ -1035,18 +1058,18 @@ $('resBody').addEventListener('click', async e => {
   if (e.target.closest('[data-ccancel]')){ adminEdit = null; renderRes(); return; }
   if (e.target.closest('[data-cclear]')) return resEditAction(() => saveCount(adminEdit.id, null), 'Conteo borrado: el producto vuelve a pendiente.');
   if (e.target.closest('[data-csave]')){
-    const raw = $('ae_cont').value, v = Math.round(+raw);
-    if (raw === '' || isNaN(v) || v < 0){ $('resStatus').textContent = 'Cargá una cantidad válida (0 o más).'; return; }
-    return resEditAction(() => saveCount(adminEdit.id, v), 'Conteo corregido.');
+    const raw = $('ae_cont').value, rawN = $('ae_noapto').value, v = Math.round(+raw), n = rawN === '' ? 0 : Math.round(+rawN);
+    if (raw === '' || isNaN(v) || v < 0 || isNaN(n) || n < 0){ $('resStatus').textContent = 'Cargá cantidades válidas (0 o más).'; return; }
+    return resEditAction(() => saveCount(adminEdit.id, v, n), 'Conteo corregido.');
   }
   const b = e.target.closest('[data-del]'); if (!b || !db) return;
   b.disabled = true;
   try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
 });
 function tableRows(){
-  const head = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
+  const head = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','No apto','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
   const rows = sortedItems().map(i => { const d = i.contado == null ? '' : i.contado - i.stock; const st = stateOf(i);
-    return [i.cod, i.bar, i.desc, i.rubro || '', i.stock, i.contado ?? '', d, st === 'pend' ? 'Pendiente' : st === 'ok' ? 'Coincide' : d < 0 ? 'Falta' : 'Sobra', i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR') : '', i.contado != null ? i.contadoPor || '' : '', i.extra ? 'Si' : '']; });
+    return [i.cod, i.bar, i.desc, i.rubro || '', i.stock, i.contado ?? '', i.contado == null ? '' : (i.apto ?? i.contado), i.contado == null ? '' : (i.noApto || 0), d, st === 'pend' ? 'Pendiente' : st === 'ok' ? 'Coincide' : d < 0 ? 'Falta' : 'Sobra', i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR') : '', i.contado != null ? i.contadoPor || '' : '', i.extra ? 'Si' : '']; });
   return [head, ...rows];
 }
 $('bCopy').onclick = async () => {
@@ -1113,7 +1136,7 @@ $('hSearchForm').addEventListener('submit', e => {
 });
 function buzz(p){ try { navigator.vibrate && navigator.vibrate(p); } catch {} }
 
-function openProd(p){ current = p; renderCard(); $('hCard').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); const q = $('qty') || $('mQty'); if (q) setTimeout(() => q.focus(), 250); }
+function openProd(p){ current = p; renderCard(); $('hCard').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); const q = $('qA') || $('mQty') || $('nQty'); if (q) setTimeout(() => q.focus(), 250); }
 function renderCard(){
   const box = $('hCard');
   if (!current){ box.innerHTML = ''; return; }
@@ -1129,11 +1152,14 @@ function renderCard(){
       <div><div class="label">Stock sistema</div><div class="v big num">${fmt(stock)}</div></div>
       <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
     </div>
-    ${it && it.contado != null ? `<div class="result over">${!it.contadoPorMail || it.contadoPorMail === me.email ? 'Ya lo contaste' : 'Ya lo contó ' + esc(it.contadoPor)}: <strong>${fmt(it.contado)}</strong>. Para corregirlo, cambiá la cantidad y tocá “Guardar corrección”. Si te equivocaste de producto, borrá el conteo.</div>` : ''}
+    ${it && it.contado != null ? `<div class="result over">${!it.contadoPorMail || it.contadoPorMail === me.email ? 'Ya lo contaste' : 'Ya lo contó ' + esc(it.contadoPor)}: <strong>${fmt(it.contado)}</strong>${it.noApto ? ` (${fmt(it.apto)} apto + ${fmt(it.noApto)} no apto)` : ''}. Para corregirlo, cambiá las cantidades y tocá “Guardar corrección”. Si te equivocaste de producto, borrá el conteo.</div>` : ''}
     <form class="qty" id="qtyForm" autocomplete="off">
-      <label class="label" for="qty">Cantidad contada (unidades)</label>
-      <input id="qty" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${it && it.contado != null ? it.contado : ''}">
-      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="qB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="qS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
+      <span class="label">Cantidad contada (unidades)</span>
+      <div class="split">
+        <label class="half ok" for="qA"><span>Apto</span><input id="qA" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${it && it.contado != null ? (it.apto ?? it.contado) : ''}"></label>
+        <label class="half bad" for="qN"><span>No apto</span><input id="qN" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${it && it.contado != null && it.noApto ? it.noApto : ''}"></label>
+      </div>
+      ${equi > 1 ? `<div class="bultos"><span>Apto por bultos:</span><input id="qB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos aptos"><span>× ${equi} +</span><input id="qS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas aptas"><span>sueltas</span></div>` : ''}
       <div id="qtyRes"></div>
       <button class="btn big primary" type="submit" id="bSave" ${canWrite ? '' : 'disabled'}>${it && it.contado != null ? 'Guardar corrección' : 'Guardar conteo'}</button>
       ${it && it.contado != null ? `<button class="btn danger" type="button" id="bCountClear" ${canWrite ? '' : 'disabled'}>${it.extra ? 'Borrar este conteo (era un producto equivocado)' : 'Borrar este conteo'}</button>` : ''}
@@ -1147,28 +1173,35 @@ function renderCard(){
     try { await saveCount(docId(p.cod), null); toast('Conteo borrado.'); current = null; renderCard(); hStatus(''); }
     catch (err) { hStatus(writeErr(err), true); btn.disabled = !canWrite; }
   };
-  const q = $('qty');
-  const upd = () => {
-    const v = q.value === '' ? null : Math.round(+q.value);
-    const r = $('qtyRes');
-    if (v == null || isNaN(v)){ r.innerHTML = ''; return; }
-    const d = v - stock;
-    r.innerHTML = d === 0 ? '<div class="result ok">Coincide con el sistema</div>' : d < 0 ? `<div class="result bad">Faltan ${fmt(-d)} contra el sistema</div>` : `<div class="result over">Sobran ${fmt(d)} contra el sistema</div>`;
+  const qa = $('qA'), qn = $('qN');
+  // Lee los dos casilleros: null si los dos están vacíos, NaN si hay un valor inválido.
+  const readQty = () => {
+    if (qa.value === '' && qn.value === '') return null;
+    const a = qa.value === '' ? 0 : Math.round(+qa.value), n = qn.value === '' ? 0 : Math.round(+qn.value);
+    return (isNaN(a) || isNaN(n) || a < 0 || n < 0) ? NaN : { apto:a, noApto:n, total:a + n };
   };
-  q.addEventListener('input', upd); upd();
-  if (equi > 1){ const bb = () => { const b = +$('qB').value || 0, s = +$('qS').value || 0; if ($('qB').value !== '' || $('qS').value !== ''){ q.value = b * equi + s; upd(); } }; $('qB').addEventListener('input', bb); $('qS').addEventListener('input', bb); }
+  const upd = () => {
+    const v = readQty(), r = $('qtyRes');
+    if (v == null || Number.isNaN(v)){ r.innerHTML = ''; return; }
+    const d = v.total - stock;
+    r.innerHTML = `<div class="muted" style="margin-bottom:6px">Total contado: <strong>${fmt(v.total)}</strong>${v.noApto ? ` · ${fmt(v.noApto)} no apto se suman en Roturas / bajas` : ''}</div>`
+      + (d === 0 ? '<div class="result ok">Coincide con el sistema</div>' : d < 0 ? `<div class="result bad">Faltan ${fmt(-d)} contra el sistema</div>` : `<div class="result over">Sobran ${fmt(d)} contra el sistema</div>`);
+  };
+  qa.addEventListener('input', upd); qn.addEventListener('input', upd); upd();
+  if (equi > 1){ const bb = () => { const b = +$('qB').value || 0, s = +$('qS').value || 0; if ($('qB').value !== '' || $('qS').value !== ''){ qa.value = b * equi + s; upd(); } }; $('qB').addEventListener('input', bb); $('qS').addEventListener('input', bb); }
   $('qtyForm').addEventListener('submit', async e => {
     e.preventDefault();
-    if (q.value === '' || isNaN(+q.value) || +q.value < 0){ hStatus('Cargá la cantidad contada.', true); q.focus(); return; }
-    const v = Math.round(+q.value);
+    const v = readQty();
+    if (v == null || Number.isNaN(v)){ hStatus('Cargá la cantidad apta y, si hay, la no apta.', true); qa.focus(); return; }
     $('bSave').disabled = true;
     try {
-      const ref = db.doc('items/' + docId(p.cod)), now = new Date().toISOString();
-      const who = { contadoPor: me.name, contadoPorMail: me.email };
-      if (it) await ref.update({ contado: v, contadoEn: now, ...who });
-      else await ref.set({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || '', stock:p.stock, equi:p.equi || 0, contado:v, contadoEn:now, extra:true, agregado:now, ...who });
-      const d = v - stock;
-      toast(`Guardado: ${fmt(v)} (${d === 0 ? 'coincide' : fmtDiff(d)})`); buzz(60);
+      const id = docId(p.cod), ref = db.doc('items/' + id), now = new Date().toISOString();
+      const data = { contado:v.total, apto:v.apto, noApto:v.noApto, contadoEn:now, contadoPor:me.name, contadoPorMail:me.email };
+      if (it) await ref.update(data);
+      else await ref.set({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || '', stock:p.stock, equi:p.equi || 0, extra:true, agregado:now, ...data });
+      await syncNoApto(id, p, v.noApto);
+      const d = v.total - stock;
+      toast(`Guardado: ${fmt(v.total)} (${d === 0 ? 'coincide' : fmtDiff(d)})${v.noApto ? ` · ${fmt(v.noApto)} a roturas` : ''}`); buzz(60);
       current = null; renderCard(); hStatus('');
       window.scrollTo({ top: 0, behavior: 'auto' });
     } catch (err) { hStatus(writeErr(err), true); if ($('bSave')) $('bSave').disabled = !canWrite; }
