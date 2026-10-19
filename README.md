@@ -32,7 +32,8 @@ Entrá a la página desde la computadora, pestaña **Stock del sistema**, elegí
 
 ## Uso diario
 
-1. **Escritorio > Armar lista:** filtrá (rubro, stock bajo, búsqueda), ordená (por ejemplo stock de mayor a menor), marcá productos y tocá **Agregar a la lista de Hugo**.
+1. **Escritorio > Armar lista:** filtrá (rubro, stock bajo, búsqueda), ordená (por ejemplo stock de mayor a menor), marcá productos y tocá **Agregar a la lista de conteo**.
+   - **Carga masiva:** en el recuadro "Cargar lista desde Excel" subí un .xls/.xlsx/.csv con las columnas *código interno, código de barras, descripción y stock actual* y tocá **Cargar a la lista**. Cada fila entra a la lista con ese stock (aunque el producto no esté en el stock del sistema). Si el producto ya estaba en la lista sin contar, se actualiza; si ya se contó, no se toca. Con **Descargar planilla modelo** bajás un ejemplo.
 2. **Celular > Conteo:** Hugo toca **Escanear código de barras**, apunta al código, carga lo que contó y guarda. La app le muestra si falta, sobra o coincide.
 3. **Celular > Roturas / bajas:** Hugo escanea cada producto roto, elige el motivo, carga las unidades y guarda. Puede cargar el mismo producto varias veces.
 4. **Celular > Suelto:** igual que roturas, pero para mercadería que apareció y no figuraba en el stock (por ejemplo, con stock 0). Las unidades se suman.
