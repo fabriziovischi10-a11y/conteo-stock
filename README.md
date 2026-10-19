@@ -39,6 +39,11 @@ Entrá a la página desde la computadora, pestaña **Stock del sistema**, elegí
 4. **Celular > Suelto:** igual que roturas, pero para mercadería que apareció y no figuraba en el stock (por ejemplo, con stock 0). Las unidades se suman.
 5. **Escritorio > Resultados**, **Roturas / bajas** y **Suelto:** se actualizan en vivo. Se pueden copiar para Excel o descargar en CSV. Con "Sumar por producto" se ve el stock del sistema, las unidades cargadas y el stock resultante.
 
+### Negativos
+Lista aparte para los productos que figuran con stock negativo.
+- **Escritorio > Negativos:** tocá **Agregar todos los negativos** (toma los del stock del sistema) o subí un Excel con código interno, código de barras, descripción y stock actual. Ahí se ve el stock del sistema, lo contado, la diferencia, **qué pasó** y quién lo contó. Botón **Editar** para corregir.
+- **Celular > Negativos:** escaneá o elegí el producto, cargá cuánto hay y elegí qué pasó (venta sin facturar, error de carga, no ingresó la compra, rotura no registrada u otro), con una nota opcional.
+
 ### Varios usuarios en el celular
 Todos los que entran en la vista **Celular** (por ejemplo Hugo y Sergio) comparten la misma lista de conteo y cargan roturas y sueltos por igual. Cada carga guarda quién la hizo (el primer nombre de su cuenta de Google): se ve en el historial del celular, en la columna **Contó** de Resultados y en la columna **Cargó** de Roturas / Suelto, donde además se puede filtrar por persona.
 

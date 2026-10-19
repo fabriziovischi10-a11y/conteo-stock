@@ -132,7 +132,9 @@ td.desc{min-width:240px}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface-2);border-radius:14px;padding:5px}
 .modes button{border:0;background:transparent;border-radius:10px;min-height:48px;font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--muted);cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-.modes{grid-template-columns:repeat(3,minmax(0,1fr))}
+.modes{grid-template-columns:repeat(4,minmax(0,1fr))}
+.modes button#mNeg[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.card.neg{border-color:var(--accent)}
 .modes button{font-size:17px;line-height:1.1;padding:4px}
 .modes button#m_bajas[aria-pressed="true"]{background:var(--bad);color:var(--surface)}
 .modes button#m_sueltos[aria-pressed="true"]{background:var(--ok);color:var(--surface)}
@@ -227,6 +229,7 @@ tr.editrow input[type="number"]{width:90px;text-align:right}
       <button role="tab" id="tRes" aria-selected="false">Resultados <span class="count num" id="cntRes">0</span></button>
       <button role="tab" id="t_bajas" aria-selected="false">Roturas / bajas <span class="count num" id="cnt_bajas">0</span></button>
       <button role="tab" id="t_sueltos" aria-selected="false">Suelto <span class="count num" id="cnt_sueltos">0</span></button>
+      <button role="tab" id="tNeg" aria-selected="false">Negativos <span class="count num" id="cntNeg">0</span></button>
       <button role="tab" id="tCat" aria-selected="false">Stock del sistema</button>
     </nav>
 
@@ -311,6 +314,47 @@ tr.editrow input[type="number"]{width:90px;text-align:right}
     <div id="p_bajas" hidden></div>
     <div id="p_sueltos" hidden></div>
 
+    <div id="pNeg" hidden>
+      <div class="massbox">
+        <div>
+          <h3>Lista de negativos</h3>
+          <p class="muted" style="margin:4px 0 0;max-width:80ch">Productos con stock negativo en el sistema para contar y explicar qué pasó. Se arma aparte de la lista de conteo: agregá todos los negativos del stock del sistema o subí un Excel con código interno, código de barras, descripción y stock actual.</p>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="bNegAll" type="button" disabled>Agregar todos los negativos</button>
+          <input id="negFile" type="file" accept=".xls,.xlsx,.csv"><button class="btn" id="bNegMass" type="button" disabled>Cargar Excel</button>
+        </div>
+        <div class="status" id="negAddStatus"></div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="label">En la lista</div><div class="v num" id="nkList">0</div></div>
+        <div class="tile"><div class="label">Contados</div><div class="v num" id="nkDone">0</div></div>
+        <div class="tile"><div class="label">Pendientes</div><div class="v num" id="nkPend">0</div></div>
+        <div class="tile"><div class="label">Diferencia neta (u.)</div><div class="v num" id="nkNet">0</div></div>
+      </div>
+      <div class="bar">
+        <div class="chips" id="negChips">
+          <button class="chip" data-f="" aria-pressed="true">Todos</button>
+          <button class="chip" data-f="pend" aria-pressed="false">Pendientes</button>
+          <button class="chip" data-f="done" aria-pressed="false">Contados</button>
+        </div>
+        <div class="row">
+          <label class="sortsel"><span class="label">Ordenar</span><select id="sNeg"></select></label>
+          <button class="btn" id="bNegCopy" type="button">Copiar para Excel</button>
+          <button class="btn" id="bNegCsv" type="button">Descargar CSV</button>
+          <span id="negClearWrap"></span>
+        </div>
+      </div>
+      <div class="status" id="negStatus"></div>
+      <div class="tablebox">
+        <table>
+          <thead id="negHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="motivo">Qué pasó</th><th data-k="contadoPor">Contó</th><th data-k="contadoEn">Contado el</th><th></th></tr></thead>
+          <tbody id="negBody"></tbody>
+        </table>
+      </div>
+      <textarea id="negCopyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
+    </div>
+
     <div id="pCat" hidden>
       <div class="notice" id="catInfo">Cargando el stock del sistema…</div>
       <h3 style="margin-bottom:6px">Importar un archivo nuevo</h3>
@@ -327,6 +371,12 @@ tr.editrow input[type="number"]{width:90px;text-align:right}
         <button id="mConteo" type="button" aria-pressed="true">Conteo</button>
         <button id="m_bajas" type="button" aria-pressed="false">Roturas / bajas</button>
         <button id="m_sueltos" type="button" aria-pressed="false">Suelto</button>
+        <button id="mNeg" type="button" aria-pressed="false">Negativos</button>
+      </div>
+      <div class="progress" id="hNegHead" hidden>
+        <div class="row" style="justify-content:space-between"><h2>Negativos</h2><span class="num"><strong id="hnDone">0</strong> de <span id="hnTotal">0</span></span></div>
+        <div class="track"><div class="fill" id="hnFill"></div></div>
+        <div class="muted" style="margin-top:6px">Contá los productos que figuran en negativo y anotá qué pasó con cada uno.</div>
       </div>
       <div class="progress" id="hMovHead" hidden>
         <div class="row" style="justify-content:space-between"><h2 id="hMovTitle"></h2><span class="num"><strong id="hMovHoy">0</strong> u. hoy</span></div>
@@ -363,6 +413,13 @@ tr.editrow input[type="number"]{width:90px;text-align:right}
           <button class="chip" data-f="done" aria-pressed="false">Ya contados</button>
         </div>
         <div class="list" id="hList"></div>
+      </div>
+      <div id="hNegList" hidden>
+        <div class="chips" id="hnChips" style="margin-bottom:10px">
+          <button class="chip" data-f="pend" aria-pressed="true">Faltan contar</button>
+          <button class="chip" data-f="done" aria-pressed="false">Ya contados</button>
+        </div>
+        <div class="list" id="hnList"></div>
       </div>
       <div id="hMovList" hidden>
         <div class="row" style="justify-content:space-between;margin-bottom:8px">
@@ -425,7 +482,7 @@ const KINDS = {
 };
 const movs = { bajas: [], sueltos: [] }; // cargas de cada tipo, más nuevas primero
 const motivoSel = { bajas: 'Rotura', sueltos: 'Encontrado' };
-let hMode = KINDS[ls.get('modo')] ? ls.get('modo') : 'conteo';
+let hMode = (KINDS[ls.get('modo')] || ls.get('modo') === 'neg') ? ls.get('modo') : 'conteo';
 let me = { email:'', name:'' }; // quién está usando la app (de su cuenta de Google)
 const byWho = () => ({ por: me.name, porMail: me.email });
 let editing = null;   // {kind, id}: carga que se corrige desde el celular
@@ -482,7 +539,7 @@ function setReadOnly(){
   if (!canWrite) return;
   canWrite = false;
   const n = $('dbNotice'); n.hidden = false; n.className = 'notice warn'; n.textContent = NO_PERM;
-  renderArmar(); renderRes(); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderClear(false);
+  renderArmar(); renderRes(); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderClear(false);
   for (const id of ['bSave', 'bBajaSave']){ const b = $(id); if (b) b.disabled = true; }
 }
 function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600); }
@@ -505,7 +562,7 @@ $('vHugo').onclick = () => setView('hugo');
 const hash = location.hash.replace('#','');
 setView(hash === 'hugo' || hash === 'admin' ? hash : (ls.get('vista') || (matchMedia('(max-width: 760px)').matches ? 'hugo' : 'admin')));
 
-const tabs = { tArmar:'pArmar', tRes:'pRes', t_bajas:'p_bajas', t_sueltos:'p_sueltos', tCat:'pCat' };
+const tabs = { tArmar:'pArmar', tRes:'pRes', t_bajas:'p_bajas', t_sueltos:'p_sueltos', tNeg:'pNeg', tCat:'pCat' };
 for (const t in tabs) $(t).onclick = () => { for (const u in tabs){ $(u).setAttribute('aria-selected', u === t); $(tabs[u]).hidden = u !== t; } };
 
 /* ---------- Catálogo ---------- */
@@ -683,14 +740,14 @@ async function writeAll(ops, onProgress){
   if (typeof db.batch === 'function'){
     for (let i = 0; i < ops.length; i += 400){
       const b = db.batch();
-      for (const o of ops.slice(i, i + 400)) o.type === 'set' ? b.set(db.doc(o.path), o.data) : b.update(db.doc(o.path), o.data);
+      for (const o of ops.slice(i, i + 400)){ const r = db.doc(o.path); o.type === 'set' ? b.set(r, o.data) : o.type === 'delete' ? b.delete(r) : b.update(r, o.data); }
       await b.commit(); onProgress(Math.min(i + 400, ops.length));
     }
     return;
   }
   for (let i = 0; i < ops.length; i++){
     const o = ops[i], ref = db.doc(o.path);
-    await (o.type === 'set' ? ref.set(o.data) : ref.update(o.data));
+    await (o.type === 'set' ? ref.set(o.data) : o.type === 'delete' ? ref.delete() : ref.update(o.data));
     if (i % 10 === 9) onProgress(i + 1);
   }
 }
@@ -825,6 +882,7 @@ function lookup(code){
   if (byCod.has(code)) return [byCod.get(code)];
   // productos de la lista sin catálogo
   for (const it of items.values()) if (it.bar === code || it.cod === code) return [itemAsProd(it)];
+  for (const n of negs.values()) if (n.bar === code || n.cod === code) return [negAsProd(n)];
   return [];
 }
 function itemAsProd(it){ return byCod.get(it.cod) || { cod:it.cod, bar:it.bar, desc:it.desc, stock:it.stock, equi:it.equi || 0 }; }
@@ -861,6 +919,7 @@ function renderCard(){
   const box = $('hCard');
   if (!current){ box.innerHTML = ''; return; }
   if (KINDS[hMode]) return renderMovCard();
+  if (hMode === 'neg') return renderNegCard();
   const p = current, it = itemFor(p.cod), stock = it ? it.stock : p.stock;
   const equi = p.equi || it?.equi || 0;
   box.innerHTML = `<div class="card">
@@ -944,10 +1003,12 @@ function setMode(m){
   hMode = m; ls.set('modo', m); editing = null;
   $('mConteo').setAttribute('aria-pressed', m === 'conteo');
   for (const k in KINDS) $('m_' + k).setAttribute('aria-pressed', m === k);
+  $('mNeg').setAttribute('aria-pressed', m === 'neg');
   $('hConteoHead').hidden = $('hConteoList').hidden = m !== 'conteo';
-  $('hMovHead').hidden = $('hMovList').hidden = m === 'conteo';
+  $('hMovHead').hidden = $('hMovList').hidden = !KINDS[m];
+  $('hNegHead').hidden = $('hNegList').hidden = m !== 'neg';
   current = null; renderCard(); hStatus(''); $('hMatches').hidden = true;
-  renderMovPhone();
+  renderMovPhone(); if (m === 'neg') renderNegPhone();
 }
 $('mConteo').onclick = () => setMode('conteo');
 for (const k in KINDS) $('m_' + k).onclick = () => setMode(k);
@@ -1200,6 +1261,212 @@ for (const k in KINDS){
 $('hChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; hFilter = b.dataset.f; for (const c of $('hChips').children) c.setAttribute('aria-pressed', c === b); renderHugo(); });
 $('hList').addEventListener('click', e => { const b = e.target.closest('[data-cod]'); if (!b) return; openProd(itemAsProd(itemFor(b.dataset.cod))); });
 
+/* ---------- Negativos: lista aparte para contar productos con stock negativo y explicar qué pasó ---------- */
+const NEG_MOTIVOS = ['Venta sin facturar', 'Error de carga', 'No ingresó la compra', 'Rotura no registrada', 'Otro'];
+let negs = new Map(); // docId -> datos, colección 'negativos'
+let hnFilter = 'pend', negFilter = '';
+const negFor = cod => negs.get(docId(cod)) || null;
+const negAsProd = n => byCod.get(n.cod) || { cod:n.cod, bar:n.bar, desc:n.desc, stock:n.stock, equi:n.equi || 0, rubro:n.rubro };
+const sortedNegs = () => [...negs.entries()].map(([id, d]) => ({ id, ...d })).sort((x, y) => (x.desc || '').localeCompare(y.desc || ''));
+const diffCls = d => d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero';
+const negDoc = p => ({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || p.rubro || '', stock:p.stock || 0, equi:p.equi || 0 });
+
+// Guarda (o borra, con value null) el conteo de un negativo con su explicación.
+async function saveNeg(p, value, motivo, nota){
+  const id = docId(p.cod), n = negs.get(id), ref = db.doc('negativos/' + id), now = new Date().toISOString();
+  if (value == null){
+    if (n?.extra) return ref.delete();
+    return ref.update({ contado:null, contadoEn:null, contadoPor:null, contadoPorMail:null, motivo:'', nota:'', editado:now, editadoPor:me.name });
+  }
+  const data = { contado:value, motivo, nota, contadoEn:n?.contadoEn || now, contadoPor:n?.contadoPor || me.name, contadoPorMail:n?.contadoPorMail || me.email };
+  if (n?.contado != null) Object.assign(data, { editado:now, editadoPor:me.name });
+  if (n) return ref.update(data);
+  return ref.set({ ...negDoc(p), ...data, extra:true, agregado:now });
+}
+
+function renderNegCard(){
+  const p = current, box = $('hCard'), n = negFor(p.cod), stock = n ? n.stock : p.stock, equi = p.equi || n?.equi || 0;
+  let mot = n?.motivo || '';
+  box.innerHTML = `<div class="card neg">
+    <div class="cardhead"><div class="desc">${esc(p.desc)}</div><button class="btn" type="button" id="bCardClose" aria-label="Cerrar">✕</button></div>
+    ${n ? '' : '<div class="result over">Este producto no está en la lista de negativos. Si lo contás, se agrega.</div>'}
+    <div class="kv">
+      <div><div class="label">Cód. interno</div><div class="v big mono">${esc(p.cod)}</div></div>
+      <div><div class="label">Stock sistema</div><div class="v big num ${stock < 0 ? 'diff neg' : ''}">${fmt(stock)}</div></div>
+      <div class="wide"><div class="label">Código de barras</div><div class="v mono">${esc(p.bar) || '—'}</div></div>
+    </div>
+    ${n && n.contado != null ? `<div class="result over">${!n.contadoPorMail || n.contadoPorMail === me.email ? 'Ya lo contaste' : 'Ya lo contó ' + esc(n.contadoPor)}: <strong>${fmt(n.contado)}</strong>. Podés corregirlo o borrar el conteo.</div>` : ''}
+    <form class="qty" id="negForm" autocomplete="off">
+      <label class="label" for="nQty">Cantidad contada (unidades)</label>
+      <input id="nQty" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${n && n.contado != null ? n.contado : ''}">
+      ${equi > 1 ? `<div class="bultos"><span>Por bultos:</span><input id="nqB" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Bultos"><span>× ${equi} +</span><input id="nqS" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Unidades sueltas"><span>sueltas</span></div>` : ''}
+      <div id="nRes"></div>
+      <span class="label">¿Qué pasó con este producto?</span>
+      <div class="motivos" id="nMotivos">${NEG_MOTIVOS.map(m => `<button class="chip" type="button" data-m="${esc(m)}" aria-pressed="${m === mot}">${esc(m)}</button>`).join('')}</div>
+      <input class="nota" id="nNota" type="text" maxlength="300" placeholder="Explicá qué pasó (por ejemplo: se vendió sin factura el 12/10)" value="${esc(n?.nota || '')}">
+      <button class="btn big primary" type="submit" id="bNegSave" ${canWrite ? '' : 'disabled'}>${n && n.contado != null ? 'Guardar corrección' : 'Guardar'}</button>
+      ${n && n.contado != null ? `<button class="btn danger" type="button" id="bNegClear" ${canWrite ? '' : 'disabled'}>Borrar este conteo</button>` : ''}
+    </form>
+  </div>`;
+  $('bCardClose').onclick = () => { current = null; renderCard(); };
+  const q = $('nQty');
+  const upd = () => {
+    const v = q.value === '' ? null : Math.round(+q.value), r = $('nRes');
+    if (v == null || isNaN(v)){ r.innerHTML = ''; return; }
+    const d = v - stock;
+    r.innerHTML = `<div class="result ${d === 0 ? 'ok' : d < 0 ? 'bad' : 'over'}">Diferencia con el sistema: ${fmtDiff(d)}</div>`;
+  };
+  q.addEventListener('input', upd); upd();
+  if (equi > 1){ const bb = () => { const b = +$('nqB').value || 0, s = +$('nqS').value || 0; if ($('nqB').value !== '' || $('nqS').value !== ''){ q.value = b * equi + s; upd(); } }; $('nqB').addEventListener('input', bb); $('nqS').addEventListener('input', bb); }
+  $('nMotivos').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; mot = b.dataset.m; for (const c of $('nMotivos').children) c.setAttribute('aria-pressed', c === b); });
+  $('negForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = Math.round(+q.value), nota = $('nNota').value.trim();
+    if (q.value === '' || isNaN(v) || v < 0){ hStatus('Cargá la cantidad contada.', true); q.focus(); return; }
+    if (!mot && !nota){ hStatus('Elegí qué pasó o escribilo en la nota.', true); return; }
+    $('bNegSave').disabled = true;
+    try { await saveNeg(p, v, mot, nota); toast(`Guardado: ${fmt(v)} (${fmtDiff(v - stock)})`); buzz(60); current = null; renderCard(); hStatus(''); window.scrollTo({ top: 0, behavior: 'auto' }); }
+    catch (err) { hStatus(writeErr(err), true); if ($('bNegSave')) $('bNegSave').disabled = !canWrite; }
+  });
+  if ($('bNegClear')) $('bNegClear').onclick = async e => {
+    const btn = e.currentTarget;
+    if (btn.dataset.armed !== '1'){ btn.dataset.armed = '1'; btn.textContent = 'Tocá de nuevo para borrar'; return; }
+    btn.disabled = true;
+    try { await saveNeg(p, null); toast('Conteo borrado.'); current = null; renderCard(); hStatus(''); }
+    catch (err) { hStatus(writeErr(err), true); btn.disabled = !canWrite; }
+  };
+}
+function renderNegPhone(){
+  const all = sortedNegs(), done = all.filter(n => n.contado != null);
+  $('hnDone').textContent = done.length; $('hnTotal').textContent = all.length;
+  $('hnFill').style.width = all.length ? (done.length / all.length * 100) + '%' : '0';
+  const list = hnFilter === 'pend' ? all.filter(n => n.contado == null) : done.sort((x, y) => (y.contadoEn || '').localeCompare(x.contadoEn || ''));
+  $('hnList').innerHTML = list.map(n => {
+    const d = n.contado == null ? null : n.contado - n.stock;
+    const right = d == null ? `<span class="num diff neg">Sist. ${fmt(n.stock)}</span>` : `<span class="diff num ${diffCls(d)}">${fmt(n.contado)} (${fmtDiff(d)})</span>`;
+    return `<button type="button" data-cod="${esc(n.cod)}"><span class="t"><span class="d">${esc(n.desc)}</span><br><span class="muted mono">${esc(n.cod)}${n.bar ? ' · ' + esc(n.bar) : ''}</span>${n.contado != null ? `<span class="muted"> · ${esc(n.motivo || 'sin motivo')}${n.contadoPor ? ' · ' + esc(n.contadoPor) : ''}</span>` : ''}</span>${right}</button>`;
+  }).join('') || `<div class="empty">${!db ? 'La lista aparece cuando entrás con tu cuenta.' : hnFilter === 'pend' ? (all.length ? 'Contaste todos los negativos.' : 'Todavía no hay negativos para contar. Se arman desde el escritorio, en la pestaña Negativos.') : 'Todavía no contaste ninguno.'}</div>`;
+}
+$('mNeg').onclick = () => setMode('neg');
+$('hnChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; hnFilter = b.dataset.f; for (const c of $('hnChips').children) c.setAttribute('aria-pressed', c === b); renderNegPhone(); });
+$('hnList').addEventListener('click', e => { const b = e.target.closest('[data-cod]'); if (!b) return; openProd(negAsProd(negFor(b.dataset.cod))); });
+
+/* Escritorio */
+SORTS.neg = { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Qué pasó','t'], contadoPor:['Contó','t'], contadoEn:['Contado el','d'], bar:['Código de barras','t'] } };
+const negGet = (n, k) => k === 'diff' ? (n.contado == null ? null : n.contado - n.stock) : n[k];
+function renderNegAdmin(){
+  if (adminEdit?.kind === 'neg' && editingRow()) return;
+  const all = sortedNegs(), done = all.filter(n => n.contado != null);
+  $('cntNeg').textContent = all.length;
+  $('nkList').textContent = fmt(all.length); $('nkDone').textContent = fmt(done.length); $('nkPend').textContent = fmt(all.length - done.length);
+  $('nkNet').textContent = fmtDiff(done.reduce((s, n) => s + (n.contado - n.stock), 0));
+  $('bNegAll').disabled = !db || !canWrite || !catalog.length;
+  $('bNegAll').textContent = `Agregar todos los negativos (${fmt(catalog.filter(p => p.stock < 0).length)})`;
+  const rows = sortList(all.filter(n => !negFilter || (negFilter === 'done') === (n.contado != null)), SORTS.neg, negGet);
+  markHeaders($('negHead'), SORTS.neg);
+  $('negBody').innerHTML = rows.map(n => {
+    const d = n.contado == null ? null : n.contado - n.stock;
+    if (adminEdit?.kind === 'neg' && adminEdit.id === n.id){
+      return `<tr class="editrow"><td class="mono">${esc(n.cod)}</td><td class="mono">${esc(n.bar)}</td><td class="desc">${esc(n.desc)}</td><td class="r num">${fmt(n.stock)}</td>
+        <td class="r"><input id="ae_ncont" type="number" min="0" step="1" value="${n.contado ?? ''}" aria-label="Cantidad contada"></td><td></td>
+        <td colspan="2"><select id="ae_nmot" aria-label="Qué pasó"><option value="">—</option>${[...new Set([...NEG_MOTIVOS, n.motivo].filter(Boolean))].map(m => `<option${m === n.motivo ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select>
+          <input id="ae_nnota" type="text" maxlength="300" value="${esc(n.nota)}" placeholder="Nota" aria-label="Nota" style="margin-top:4px;width:100%"></td>
+        <td colspan="2"><div class="rowbtns"><button class="btn primary" type="button" data-nsave>Guardar</button>${n.contado != null ? '<button class="btn danger" type="button" data-nclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ncancel>Cancelar</button></div></td></tr>`;
+    }
+    const when = n.contadoEn ? fmtWhen(n.contadoEn) : '';
+    return `<tr><td class="mono">${esc(n.cod)}</td><td class="mono">${esc(n.bar)}</td><td class="desc">${esc(n.desc)}${n.extra ? ' <span class="pill list">Agregado en el celular</span>' : ''}${n.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
+      <td class="r num diff neg">${fmt(n.stock)}</td><td class="r num">${fmt(n.contado)}</td><td class="r num diff ${diffCls(d)}">${fmtDiff(d)}</td>
+      <td>${n.motivo ? `<span class="pill over">${esc(n.motivo)}</span>` : (n.contado == null ? '<span class="pill">Pendiente</span>' : '')}${n.nota ? `<br><span class="muted">${esc(n.nota)}</span>` : ''}</td>
+      <td>${esc(n.contado != null ? n.contadoPor || '' : '')}${n.editadoPor ? `<br><span class="muted">corrigió ${esc(n.editadoPor)}</span>` : ''}</td><td class="muted num">${when}</td>
+      <td><div class="rowbtns"><button class="btn" type="button" data-nedit="${esc(n.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-ndel="${esc(n.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
+  }).join('') || `<tr><td colspan="10" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista de negativos está vacía. Agregá los negativos del stock del sistema o subí un Excel.'}</td></tr>`;
+  renderNegClear(false);
+}
+function negTabla(){
+  return [['Codigo interno','Codigo de barras','Descripcion','Stock sistema','Contado','Diferencia','Que paso','Nota','Conto','Contado el'],
+    ...sortList(sortedNegs(), SORTS.neg, negGet).map(n => [n.cod, n.bar, n.desc, n.stock, n.contado ?? '', n.contado == null ? '' : n.contado - n.stock, n.motivo || '', n.nota || '', n.contado != null ? n.contadoPor || '' : '', n.contadoEn ? new Date(n.contadoEn).toLocaleString('es-AR') : ''])];
+}
+function renderNegClear(confirming){
+  const w = $('negClearWrap');
+  if (!confirming){ w.innerHTML = `<button class="btn danger" type="button" ${!canWrite || !negs.size ? 'disabled' : ''}>Vaciar lista</button>`; w.firstChild.onclick = () => renderNegClear(true); return; }
+  w.innerHTML = `<span class="confirm">¿Borrar los ${negs.size} negativos y sus conteos? <button class="btn danger" type="button" data-yes>Sí, vaciar</button><button class="btn" type="button" data-no>No</button></span>`;
+  w.querySelector('[data-no]').onclick = () => renderNegClear(false);
+  w.querySelector('[data-yes]').onclick = async e => {
+    e.target.disabled = true;
+    try { await writeAll([...negs.keys()].map(id => ({ type:'delete', path:'negativos/' + id })), n => { $('negStatus').textContent = `Borrando ${n}…`; }); $('negStatus').textContent = 'Lista de negativos vaciada.'; }
+    catch (err) { $('negStatus').textContent = writeErr(err); }
+    renderNegClear(false);
+  };
+}
+// Agrega productos a la lista de negativos; los que ya están sin contar se actualizan, los contados no se tocan.
+async function addNegs(prods, st){
+  const now = new Date().toISOString(), ops = [], seen = new Set();
+  let nuevos = 0, act = 0, contados = 0;
+  for (const p of prods){
+    const id = docId(p.cod); if (seen.has(id)) continue; seen.add(id);
+    const n = negs.get(id);
+    if (!n){ ops.push({ type:'set', path:'negativos/' + id, data:{ ...negDoc(p), contado:null, contadoEn:null, motivo:'', nota:'', extra:false, agregado:now } }); nuevos++; }
+    else if (n.contado == null){ ops.push({ type:'update', path:'negativos/' + id, data:{ stock:p.stock, desc:p.desc || n.desc, bar:p.bar || n.bar } }); act++; }
+    else contados++;
+  }
+  if (negs.size + nuevos > 1000) throw new Error(`La lista de negativos admite hasta 1.000 productos (ya hay ${negs.size}).`);
+  await writeAll(ops, k => { st.textContent = `Guardando ${k} de ${ops.length}…`; });
+  return `Listo: ${nuevos} agregados y ${act} actualizados en la lista de negativos.${contados ? ` ${contados} ya contados quedaron sin cambios.` : ''}`;
+}
+$('bNegAll').onclick = async () => {
+  const st = $('negAddStatus'); st.className = 'status'; $('bNegAll').disabled = true;
+  try { const list = catalog.filter(p => p.stock < 0); st.textContent = list.length ? await addNegs(list, st) : 'No hay productos con stock negativo en el stock del sistema.'; }
+  catch (e) { st.className = 'status err'; st.textContent = e.code ? writeErr(e) : e.message; }
+  renderNegAdmin();
+};
+$('negFile').onchange = () => $('bNegMass').disabled = !$('negFile').files.length || !db || !canWrite;
+$('bNegMass').onclick = async () => {
+  const f = $('negFile').files[0], st = $('negAddStatus'); if (!f) return;
+  st.className = 'status'; $('bNegMass').disabled = true;
+  try {
+    st.textContent = 'Leyendo el archivo…';
+    await needXLSX();
+    const wb = XLSX.read(await f.arrayBuffer(), { type:'array' });
+    const { rows, bad } = parseMass(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, raw:true, defval:'' }));
+    if (!rows.length) throw new Error('No encontré productos en el archivo.');
+    st.textContent = await addNegs(rows, st) + (bad.length ? ` Se omitieron ${bad.length} filas sin código o con stock inválido.` : '');
+    $('negFile').value = '';
+  } catch (e) { st.className = 'status err'; st.textContent = e.code ? writeErr(e) : 'No se pudo cargar: ' + e.message; }
+  $('bNegMass').disabled = !$('negFile').files.length;
+};
+$('negChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; negFilter = b.dataset.f; for (const c of $('negChips').children) c.setAttribute('aria-pressed', c === b); renderNegAdmin(); });
+async function negEditDo(fn, msg){
+  try { await fn(); adminEdit = null; $('negStatus').textContent = msg; renderNegAdmin(); }
+  catch (err) { $('negStatus').textContent = writeErr(err); }
+}
+$('negBody').addEventListener('click', async e => {
+  const ed = e.target.closest('[data-nedit]');
+  if (ed){ adminEdit = { kind:'neg', id:ed.dataset.nedit }; $('negStatus').textContent = ''; renderNegAdmin(); $('ae_ncont')?.focus(); return; }
+  if (e.target.closest('[data-ncancel]')){ adminEdit = null; renderNegAdmin(); return; }
+  const n = adminEdit?.kind === 'neg' ? negs.get(adminEdit.id) : null;
+  if (e.target.closest('[data-nclear]') && n) return negEditDo(() => saveNeg(negAsProd(n), null), 'Conteo borrado.');
+  if (e.target.closest('[data-nsave]') && n){
+    const raw = $('ae_ncont').value, v = Math.round(+raw);
+    if (raw === '' || isNaN(v) || v < 0){ $('negStatus').textContent = 'Cargá una cantidad válida (0 o más).'; return; }
+    return negEditDo(() => saveNeg(negAsProd(n), v, $('ae_nmot').value, $('ae_nnota').value.trim()), 'Conteo corregido.');
+  }
+  const del = e.target.closest('[data-ndel]');
+  if (del){ del.disabled = true; try { await db.doc('negativos/' + del.dataset.ndel).delete(); } catch (err) { $('negStatus').textContent = writeErr(err); del.disabled = false; } }
+});
+$('negBody').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.closest('tr.editrow')){ e.preventDefault(); e.target.closest('tr').querySelector('[data-nsave]').click(); }
+  if (e.key === 'Escape' && adminEdit){ adminEdit = null; renderNegAdmin(); }
+});
+$('bNegCopy').onclick = async () => {
+  const text = negTabla().map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
+  catch { const ta = $('negCopyArea'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('negStatus').textContent = 'Seleccioné la tabla abajo: copiala con Ctrl+C.'; }
+};
+$('bNegCsv').onclick = () => {
+  const csv = '﻿' + negTabla().map(r => r.map(c => { const s = String(c); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
+  saveFile('negativos-' + new Date().toISOString().slice(0, 10) + '.csv', csv);
+};
+
 /* ---------- Lectura de códigos ---------- */
 const FORMATS = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
 let detector;
@@ -1293,11 +1560,13 @@ function stopLive(){
 $('bLiveClose').onclick = stopLive;
 
 /* ---------- Render general ---------- */
-function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); }
+function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderNegPhone(); }
 sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
 sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor']);
 wireSort('arm', $('sArm'), $('armHead'), renderArmar);
 wireSort('res', $('sRes'), $('resHead'), renderRes);
+sortOptions($('sNeg'), SORTS.neg, ['diff','stock','contado','desc','cod','motivo','contadoPor','contadoEn']);
+wireSort('neg', $('sNeg'), $('negHead'), renderNegAdmin);
 for (const k in KINDS) wireSort('mov_' + k, $('srt_' + k), $('head_' + k), () => renderMovAdmin(k));
 setMode(hMode);
 renderAll();
@@ -1337,7 +1606,7 @@ renderAll();
     unsubs.forEach(f => f()); unsubs = [];
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
-    if (!u){ db = null; items = new Map(); for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    if (!u){ db = null; items = new Map(); negs = new Map(); for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
     $('whoMail').textContent = u.email || '';
     // El nombre que queda registrado en cada carga: el primer nombre de la cuenta de Google.
     me = { email: (u.email || '').toLowerCase(), name: (u.displayName || '').trim().split(/\s+/)[0] || (u.email || '').split('@')[0] };
@@ -1349,6 +1618,10 @@ renderAll();
     unsubs.push(db.collection('items').limit(1000).onSnapshot(snap => {
       items = new Map(snap.docs.map(d => [d.id, d.data()]));
       renderArmar(); renderRes(); renderHugo(); renderClear(false);
+    }, denied));
+    unsubs.push(db.collection('negativos').limit(1000).onSnapshot(snap => {
+      negs = new Map(snap.docs.map(d => [d.id, d.data()]));
+      renderNegAdmin(); renderNegPhone();
     }, denied));
     for (const k in KINDS) unsubs.push(db.collection(KINDS[k].col).orderBy('fecha', 'desc').limit(1000).onSnapshot(snap => {
       movs[k] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
