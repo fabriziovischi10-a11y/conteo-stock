@@ -302,6 +302,11 @@ tr.sel{background:color-mix(in srgb,var(--tape) 14%,transparent)}
 .qty > input[type="number"]{border-radius:14px;transition:border-color .15s ease,box-shadow .15s ease}
 /* Conteo dividido: apto (verde) a la izquierda, no apto (rojo, va a roturas) a la derecha */
 .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Motivo del ajuste en Resultados: un selector y el detalle, uno debajo del otro */
+.ajuste{display:flex;flex-direction:column;gap:4px;min-width:190px}
+.ajuste select,.ajuste input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 8px;font-size:13px;min-width:0}
+.ajuste select:has(option[value=""]:checked){border-color:var(--bad);color:var(--bad)}
+#closePanel .notice{margin-bottom:10px}
 .split .half{display:flex;flex-direction:column;gap:6px;border-radius:14px;padding:8px;background:var(--surface-2);min-width:0}
 .split .half > span{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center}
 .split .ok > span{color:var(--ok)}
@@ -501,22 +506,32 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
           <button class="chip" data-f="diff" aria-pressed="false">Con diferencia</button>
           <button class="chip" data-f="ok" aria-pressed="false">Coinciden</button>
           <button class="chip" data-f="extra" aria-pressed="false">Agregados en el celular</button>
+          <button class="chip" data-f="nomot" aria-pressed="false">Sin motivo de ajuste</button>
         </div>
         <div class="row">
           <label class="sortsel"><span class="label">Ordenar</span><select id="sRes"></select></label>
           <button class="btn" id="bCopy" type="button">Copiar para Excel</button>
           <button class="btn" id="bCsv" type="button">Descargar CSV</button>
+          <span id="closeWrap"></span>
           <span id="clearWrap"><button class="btn danger" id="bClear" type="button">Vaciar lista</button></span>
         </div>
       </div>
       <div class="status" id="resStatus"></div>
+      <div id="closePanel"></div>
       <div class="tablebox">
         <table>
-          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th></th></tr></thead>
+          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th data-k="ajuste">Motivo del ajuste</th><th></th></tr></thead>
           <tbody id="resBody"></tbody>
         </table>
       </div>
       <textarea id="copyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
+      <h3 style="margin:24px 0 8px">Cierres anteriores</h3>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th>Cerrado el</th><th>Cerró</th><th class="r">Productos</th><th class="r">Contados</th><th class="r">Con ajuste</th><th class="r">Diferencia neta</th><th></th></tr></thead>
+          <tbody id="cierresBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Se completan desde el script (movPanelHTML), uno por tipo de carga -->
@@ -701,7 +716,7 @@ let adminEdit = null; // {kind, id}: fila que se edita en el escritorio (kind 'i
 // tipo: n = número (mayor a menor primero), t = texto (A→Z primero), d = fecha (más nuevos primero)
 const SORTS = {
   arm: { k:'stock', dir:-1, keys:{ stock:['Stock','n'], ptocri:['Punto crítico','n'], desc:['Descripción','t'], cod:['Código interno','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
-  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], bar:['Código de barras','t'] } },
+  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], ajuste:['Motivo del ajuste','t'], bar:['Código de barras','t'] } },
 };
 for (const k in KINDS) SORTS['mov_' + k] = { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], stock:['Stock sistema','n'], total:[KINDS[k].totalLabel,'n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], por:['Cargó','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } };
 const cmpVal = (a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
@@ -992,17 +1007,25 @@ $('bMass').onclick = async () => {
 
 /* ---------- Resultados ---------- */
 function stateOf(it){ if (it.contado == null) return 'pend'; const d = it.contado - it.stock; return d === 0 ? 'ok' : 'diff'; }
+// Motivo/detalle del ajuste: se pide para cada producto contado con diferencia antes de cerrar el día.
+const AJUSTE_MOTIVOS = ['Error de conteo anterior', 'Rotura / no apto', 'Vencido', 'Faltante / robo', 'Error de carga en sistema', 'Compra no ingresada', 'Venta sin facturar', 'Otro'];
+const needsAjuste = i => i.contado != null && i.contado !== i.stock;
+const ajusteCell = i => !needsAjuste(i) ? '<span class="muted">—</span>'
+  : `<div class="ajuste" data-id="${esc(i.id)}"><select data-aj="mot" aria-label="Motivo del ajuste" ${canWrite ? '' : 'disabled'}><option value="">Elegí el motivo…</option>${[...new Set([...AJUSTE_MOTIVOS, i.ajusteMotivo].filter(Boolean))].map(m => `<option${m === i.ajusteMotivo ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select>
+     <input data-aj="det" type="text" maxlength="300" placeholder="Detalle (opcional)" value="${esc(i.ajusteDetalle || '')}" aria-label="Detalle del ajuste" ${canWrite ? '' : 'disabled'}></div>`;
 function sortedItems(){ return [...items.entries()].map(([id, d]) => ({ id, ...d })).sort((x, y) => (x.desc || '').localeCompare(y.desc || '')); }
 function renderRes(){
   if (adminEdit?.kind === 'items' && editingRow()) return; // no pisar lo que se está escribiendo
+  if (document.activeElement?.closest?.('.ajuste')) return; // se vuelve a dibujar al salir del campo
   const all = sortedItems();
   const done = all.filter(i => i.contado != null), diff = done.filter(i => i.contado !== i.stock);
   $('cntRes').textContent = all.length;
   $('kList').textContent = fmt(all.length); $('kDone').textContent = fmt(done.length); $('kDiff').textContent = fmt(diff.length);
   const net = done.reduce((s, i) => s + (i.contado - i.stock), 0); $('kNet').textContent = fmtDiff(net);
   const ESTADO = { pend:'Pendiente', ok:'Coincide' };
-  const rows = sortList(all.filter(i => !resFilter || (resFilter === 'extra' ? i.extra : stateOf(i) === resFilter)), SORTS.res, (i, k) => {
+  const rows = sortList(all.filter(i => !resFilter || (resFilter === 'extra' ? i.extra : resFilter === 'nomot' ? needsAjuste(i) && !i.ajusteMotivo : stateOf(i) === resFilter)), SORTS.res, (i, k) => {
     if (k === 'diff') return i.contado == null ? null : i.contado - i.stock;
+    if (k === 'ajuste') return needsAjuste(i) ? (i.ajusteMotivo || ' sin motivo') : null;
     if (k === 'estado'){ const st = stateOf(i); return ESTADO[st] || (i.contado < i.stock ? 'Falta' : 'Sobra'); }
     return i[k];
   });
@@ -1014,13 +1037,15 @@ function renderRes(){
     if (adminEdit?.kind === 'items' && adminEdit.id === i.id){
       return `<tr class="editrow"><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)}</td>
         <td class="r num">${fmt(i.stock)}</td><td class="r" colspan="2"><div class="rowbtns" style="justify-content:flex-end"><label class="muted">Apto <input id="ae_cont" type="number" min="0" step="1" value="${i.contado != null ? (i.apto ?? i.contado) : ''}" aria-label="Cantidad apta"></label><label class="muted">No apto <input id="ae_noapto" type="number" min="0" step="1" value="${i.noApto || ''}" aria-label="Cantidad no apta"></label></div></td>
-        <td colspan="4"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
+        <td colspan="5"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
     }
     return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
       <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}${i.noApto ? `<br><span class="muted" style="color:var(--bad)">${fmt(i.noApto)} no apto</span>` : ''}</td>
       <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
+      <td>${ajusteCell(i)}</td>
       <td><div class="rowbtns"><button class="btn" type="button" data-cedit="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-del="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
-  }).join('') || `<tr><td colspan="10" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
+  }).join('') || `<tr><td colspan="11" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
+  renderClose(false);
 }
 $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
 // Corrige o borra un conteo. Un producto agregado desde el celular (extra) se quita de la lista al borrar su conteo.
@@ -1067,11 +1092,28 @@ $('resBody').addEventListener('click', async e => {
   try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
 });
 function tableRows(){
-  const head = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','No apto','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
-  const rows = sortedItems().map(i => { const d = i.contado == null ? '' : i.contado - i.stock; const st = stateOf(i);
-    return [i.cod, i.bar, i.desc, i.rubro || '', i.stock, i.contado ?? '', i.contado == null ? '' : (i.apto ?? i.contado), i.contado == null ? '' : (i.noApto || 0), d, st === 'pend' ? 'Pendiente' : st === 'ok' ? 'Coincide' : d < 0 ? 'Falta' : 'Sobra', i.contadoEn ? new Date(i.contadoEn).toLocaleString('es-AR') : '', i.contado != null ? i.contadoPor || '' : '', i.extra ? 'Si' : '']; });
-  return [head, ...rows];
+  return [PLANILLA_HEAD, ...sortedItems().map(planillaRow).map(planillaCells)];
 }
+// Una fila de la planilla tal como queda guardada en un cierre del día.
+const PLANILLA_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','No apto','Diferencia','Estado','Motivo del ajuste','Detalle del ajuste','Contado el','Contado por','Agregado en el celular'];
+function planillaRow(i){
+  const d = i.contado == null ? null : i.contado - i.stock, st = stateOf(i);
+  return { cod:i.cod, bar:i.bar || '', desc:i.desc || '', rubro:i.rubro || '', stock:i.stock, contado:i.contado ?? null, apto:i.contado == null ? null : (i.apto ?? i.contado), noApto:i.contado == null ? null : (i.noApto || 0),
+    diff:d, estado: st === 'pend' ? 'Pendiente' : st === 'ok' ? 'Coincide' : d < 0 ? 'Falta' : 'Sobra',
+    ajusteMotivo: needsAjuste(i) ? i.ajusteMotivo || '' : '', ajusteDetalle: needsAjuste(i) ? i.ajusteDetalle || '' : '',
+    contadoEn:i.contadoEn || '', contadoPor:i.contado != null ? i.contadoPor || '' : '', extra:!!i.extra };
+}
+const planillaCells = r => [r.cod, r.bar, r.desc, r.rubro, r.stock, r.contado ?? '', r.apto ?? '', r.noApto ?? '', r.diff ?? '', r.estado, r.ajusteMotivo, r.ajusteDetalle, r.contadoEn ? new Date(r.contadoEn).toLocaleString('es-AR') : '', r.contadoPor, r.extra ? 'Si' : ''];
+// Guarda el motivo/detalle del ajuste apenas se cambia; al salir del campo se vuelve a dibujar la tabla.
+$('resBody').addEventListener('change', async e => {
+  const f = e.target.closest('[data-aj]'); if (!f || !db) return;
+  const box = f.closest('.ajuste'), id = box.dataset.id;
+  try {
+    await db.doc('items/' + id).update({ ajusteMotivo: box.querySelector('[data-aj="mot"]').value, ajusteDetalle: box.querySelector('[data-aj="det"]').value.trim(), ajustePor: me.name, ajusteEn: new Date().toISOString() });
+    $('resStatus').textContent = 'Motivo del ajuste guardado.';
+  } catch (err) { $('resStatus').textContent = writeErr(err); }
+});
+$('resBody').addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement?.closest?.('.ajuste')) renderRes(); }, 60));
 $('bCopy').onclick = async () => {
   const text = tableRows().map(r => r.map(c => String(c).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
   try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
@@ -1094,6 +1136,62 @@ function renderClear(confirming){
   };
 }
 renderClear(false);
+
+/* ---------- Cierre del día: guarda la planilla con los motivos de ajuste ---------- */
+let cierres = []; // cierres guardados, más nuevos primero
+function renderClose(confirming){
+  const w = $('closeWrap'), panel = $('closePanel');
+  if (!confirming){
+    w.innerHTML = `<button class="btn primary" type="button" ${!canWrite || !items.size ? 'disabled' : ''}>Cerrar día</button>`;
+    w.firstChild.onclick = () => renderClose(true);
+    if (panel.dataset.open !== '1') panel.innerHTML = '';
+    return;
+  }
+  panel.dataset.open = '1';
+  const all = sortedItems(), done = all.filter(i => i.contado != null), conAjuste = done.filter(needsAjuste), faltan = conAjuste.filter(i => !i.ajusteMotivo), pend = all.length - done.length;
+  const close = () => { panel.dataset.open = ''; panel.innerHTML = ''; };
+  if (faltan.length){
+    panel.innerHTML = `<div class="notice warn"><strong>Antes de cerrar, cargá el motivo del ajuste de ${faltan.length} ${faltan.length === 1 ? 'producto' : 'productos'} con diferencia.</strong>
+      <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-ver>Ver cuáles faltan</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
+    panel.querySelector('[data-ver]').onclick = () => { close(); resFilter = 'nomot'; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c.dataset.f === 'nomot'); renderRes(); };
+    panel.querySelector('[data-no]').onclick = close;
+    return;
+  }
+  panel.innerHTML = `<div class="notice"><strong>¿Cerrar el día?</strong> Se guarda la planilla con ${fmt(all.length)} productos: ${fmt(done.length)} contados (${fmt(conAjuste.length)} con ajuste)${pend ? ` y ${fmt(pend)} sin contar` : ''}. Después la podés descargar desde “Cierres anteriores”.
+    <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cv>Cerrar y vaciar la lista</button><button class="btn" type="button" data-cm>Cerrar y mantener la lista</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
+  panel.querySelector('[data-no]').onclick = close;
+  const go = async vaciar => {
+    for (const b of panel.querySelectorAll('button')) b.disabled = true;
+    try {
+      const filas = all.map(planillaRow);
+      await db.collection('cierres').add({ fecha:new Date().toISOString(), cerradoPor:me.name, cerradoPorMail:me.email, filas,
+        totales:{ productos:all.length, contados:done.length, conAjuste:conAjuste.length, pendientes:pend, neto:done.reduce((s, i) => s + (i.contado - i.stock), 0) } });
+      if (vaciar) await writeAll(all.map(i => ({ type:'delete', path:'items/' + i.id })), n => { $('resStatus').textContent = `Vaciando la lista… ${n}`; });
+      close(); $('resStatus').textContent = vaciar ? 'Día cerrado y lista vaciada. La planilla quedó en “Cierres anteriores”.' : 'Día cerrado. La planilla quedó en “Cierres anteriores”.';
+    } catch (err) { $('resStatus').textContent = 'No se pudo cerrar el día: ' + writeErr(err); close(); }
+    renderRes();
+  };
+  panel.querySelector('[data-cv]').onclick = () => go(true);
+  panel.querySelector('[data-cm]').onclick = () => go(false);
+}
+function renderCierres(){
+  $('cierresBody').innerHTML = cierres.map(c => { const t = c.totales || {};
+    return `<tr><td class="num">${fmtWhen(c.fecha)}</td><td>${esc(c.cerradoPor || '')}</td><td class="r num">${fmt(t.productos)}</td><td class="r num">${fmt(t.contados)}</td><td class="r num">${fmt(t.conAjuste)}</td><td class="r num diff ${t.neto < 0 ? 'neg' : t.neto > 0 ? 'pos' : 'zero'}">${fmtDiff(t.neto)}</td>
+      <td><div class="rowbtns"><button class="btn" type="button" data-ccopy="${esc(c.id)}">Copiar para Excel</button><button class="btn" type="button" data-ccsv="${esc(c.id)}">Descargar CSV</button></div></td></tr>`; }).join('')
+    || `<tr><td colspan="7" class="empty">${db ? 'Todavía no se cerró ningún día. Cuando termines el conteo, tocá “Cerrar día”.' : 'Los cierres aparecen cuando entrás con tu cuenta.'}</td></tr>`;
+}
+const cierreTabla = c => [PLANILLA_HEAD, ...(c.filas || []).map(planillaCells)];
+$('cierresBody').addEventListener('click', async e => {
+  const cp = e.target.closest('[data-ccopy]'), cv = e.target.closest('[data-ccsv]');
+  const c = cierres.find(x => x.id === (cp || cv)?.dataset[cp ? 'ccopy' : 'ccsv']); if (!c) return;
+  if (cv){
+    const csv = '﻿' + cierreTabla(c).map(r => r.map(x => { const s = String(x); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
+    return saveFile('cierre-conteo-' + String(c.fecha).slice(0, 10) + '.csv', csv);
+  }
+  const text = cierreTabla(c).map(r => r.map(x => String(x).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Copiado. Pegalo en Excel.'); }
+  catch { const ta = $('copyArea'); ta.hidden = false; ta.value = text; ta.focus(); ta.select(); $('resStatus').textContent = 'Seleccioné la planilla abajo: copiala con Ctrl+C.'; }
+});
 
 /* ---------- Celular: búsqueda y conteo ---------- */
 function lookup(code){
@@ -1792,9 +1890,9 @@ function stopLive(){
 $('bLiveClose').onclick = stopLive;
 
 /* ---------- Render general ---------- */
-function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderNegPhone(); }
+function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderNegPhone(); renderCierres(); }
 sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
-sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor']);
+sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor','ajuste']);
 wireSort('arm', $('sArm'), $('armHead'), renderArmar);
 wireSort('res', $('sRes'), $('resHead'), renderRes);
 sortOptions($('sNeg'), SORTS.neg, ['diff','stock','contado','desc','cod','motivo','contadoPor','contadoEn']);
@@ -1838,7 +1936,7 @@ renderAll();
     unsubs.forEach(f => f()); unsubs = [];
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
-    if (!u){ db = null; items = new Map(); negs = new Map(); for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    if (!u){ db = null; items = new Map(); negs = new Map(); cierres = []; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
     $('whoMail').textContent = u.email || '';
     // El nombre que queda registrado en cada carga: el primer nombre de la cuenta de Google.
     me = { email: (u.email || '').toLowerCase(), name: (u.displayName || '').trim().split(/\s+/)[0] || (u.email || '').split('@')[0] };
@@ -1859,6 +1957,10 @@ renderAll();
       movs[k] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (hMode === k){ renderMovPhone(); if (editing && current && !document.activeElement?.closest?.('#hCard')) renderCard(); }
       renderMovAdmin(k);
+    }, denied));
+    unsubs.push(db.collection('cierres').orderBy('fecha', 'desc').limit(100).onSnapshot(snap => {
+      cierres = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderCierres();
     }, denied));
     renderAll();
   });

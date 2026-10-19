@@ -50,6 +50,10 @@ Todos los que entran en la vista **Celular** (por ejemplo Hugo y Sergio) compart
 ### Historial
 En el celular, debajo de Roturas / bajas y de Suelto, está el **Historial** con el filtro Hoy / 7 días / 30 días / Todo. En el escritorio, esas pestañas muestran por defecto **todo el historial**, con filtros por período y por quién cargó.
 
+### Cerrar el día
+En **Escritorio > Resultados**, cada producto contado con diferencia tiene la columna **Motivo del ajuste** (un motivo de la lista y un detalle opcional), que se guarda apenas se elige. El filtro **Sin motivo de ajuste** muestra los que faltan.
+Al terminar, tocá **Cerrar día**: si falta algún motivo, la app te lo marca; si está todo, guarda la planilla completa (stock, contado, apto/no apto, diferencia, motivo y detalle, quién contó) y te deja **cerrar y vaciar la lista** o **cerrar y mantenerla**. Las planillas cerradas quedan en **Cierres anteriores**, para copiar a Excel o descargar en CSV.
+
 ### Corregir errores
 - **Roturas y sueltos:** botón **Editar** en cada carga (en el celular, en "Cargadas hoy"; en el escritorio, en la tabla). Se puede cambiar la cantidad, el motivo, la nota y el producto: en el celular, mientras se corrige, escaneá o buscá el producto correcto; en el escritorio, escribí su código. **Borrar** pide un segundo toque.
 - **Conteos:** en el celular, tocá el producto en "Ya contados" (o escanealo de nuevo), cambiá la cantidad y tocá **Guardar corrección**, o **Borrar este conteo** si era otro producto. En el escritorio, botón **Editar** en Resultados.
