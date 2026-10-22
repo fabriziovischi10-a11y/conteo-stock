@@ -52,7 +52,7 @@ En el celular, debajo de Roturas / bajas y de Suelto, está el **Historial** con
 
 ### Cerrar el día
 En **Escritorio > Resultados**, cada producto contado con diferencia tiene la columna **Motivo del ajuste** (un motivo de la lista y un detalle opcional), que se guarda apenas se elige. El filtro **Sin motivo de ajuste** muestra los que faltan.
-Al terminar, tocá **Cerrar día**: si falta algún motivo, la app te lo marca; si está todo, guarda la planilla completa (stock, contado, apto/no apto, diferencia, motivo y detalle, quién contó) y te deja **cerrar y vaciar la lista** o **cerrar y mantenerla**. Las planillas cerradas quedan en **Cierres anteriores**, para copiar a Excel o descargar en CSV.
+Al terminar, tocá **Cerrar día**: si falta algún motivo, la app te lo marca; si está todo, guarda la planilla completa (stock, contado, apto/no apto, diferencia, motivo y detalle, quién contó). Con **Cerrar día** se quitan de la lista los productos ya contados y **los pendientes quedan para contar**, marcados "Pendiente del dd/mm" (filtro **De días anteriores**). Si después cargás una lista nueva, los pendientes se suman a ella. También podés **cerrar y mantener toda la lista**. Las planillas cerradas quedan en **Cierres anteriores**, para copiar a Excel o descargar en CSV.
 
 ### Corregir errores
 - **Roturas y sueltos:** botón **Editar** en cada carga (en el celular, en "Cargadas hoy"; en el escritorio, en la tabla). Se puede cambiar la cantidad, el motivo, la nota y el producto: en el celular, mientras se corrige, escaneá o buscá el producto correcto; en el escritorio, escribí su código. **Borrar** pide un segundo toque.

@@ -507,6 +507,7 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
           <button class="chip" data-f="ok" aria-pressed="false">Coinciden</button>
           <button class="chip" data-f="extra" aria-pressed="false">Agregados en el celular</button>
           <button class="chip" data-f="nomot" aria-pressed="false">Sin motivo de ajuste</button>
+          <button class="chip" data-f="prev" aria-pressed="false">De días anteriores</button>
         </div>
         <div class="row">
           <label class="sortsel"><span class="label">Ordenar</span><select id="sRes"></select></label>
@@ -1006,6 +1007,7 @@ $('bMass').onclick = async () => {
 };
 
 /* ---------- Resultados ---------- */
+const fmtDia = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }) : '';
 function stateOf(it){ if (it.contado == null) return 'pend'; const d = it.contado - it.stock; return d === 0 ? 'ok' : 'diff'; }
 // Motivo/detalle del ajuste: se pide para cada producto contado con diferencia antes de cerrar el día.
 const AJUSTE_MOTIVOS = ['Error de conteo anterior', 'Rotura / no apto', 'Vencido', 'Faltante / robo', 'Error de carga en sistema', 'Compra no ingresada', 'Venta sin facturar', 'Otro'];
@@ -1023,7 +1025,7 @@ function renderRes(){
   $('kList').textContent = fmt(all.length); $('kDone').textContent = fmt(done.length); $('kDiff').textContent = fmt(diff.length);
   const net = done.reduce((s, i) => s + (i.contado - i.stock), 0); $('kNet').textContent = fmtDiff(net);
   const ESTADO = { pend:'Pendiente', ok:'Coincide' };
-  const rows = sortList(all.filter(i => !resFilter || (resFilter === 'extra' ? i.extra : resFilter === 'nomot' ? needsAjuste(i) && !i.ajusteMotivo : stateOf(i) === resFilter)), SORTS.res, (i, k) => {
+  const rows = sortList(all.filter(i => !resFilter || (resFilter === 'extra' ? i.extra : resFilter === 'nomot' ? needsAjuste(i) && !i.ajusteMotivo : resFilter === 'prev' ? !!i.pendienteDesde : stateOf(i) === resFilter)), SORTS.res, (i, k) => {
     if (k === 'diff') return i.contado == null ? null : i.contado - i.stock;
     if (k === 'ajuste') return needsAjuste(i) ? (i.ajusteMotivo || ' sin motivo') : null;
     if (k === 'estado'){ const st = stateOf(i); return ESTADO[st] || (i.contado < i.stock ? 'Falta' : 'Sobra'); }
@@ -1039,7 +1041,7 @@ function renderRes(){
         <td class="r num">${fmt(i.stock)}</td><td class="r" colspan="2"><div class="rowbtns" style="justify-content:flex-end"><label class="muted">Apto <input id="ae_cont" type="number" min="0" step="1" value="${i.contado != null ? (i.apto ?? i.contado) : ''}" aria-label="Cantidad apta"></label><label class="muted">No apto <input id="ae_noapto" type="number" min="0" step="1" value="${i.noApto || ''}" aria-label="Cantidad no apta"></label></div></td>
         <td colspan="5"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
     }
-    return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
+    return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.pendienteDesde ? ` <span class="pill over">Pendiente del ${fmtDia(i.pendienteDesde)}</span>` : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
       <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}${i.noApto ? `<br><span class="muted" style="color:var(--bad)">${fmt(i.noApto)} no apto</span>` : ''}</td>
       <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
       <td>${ajusteCell(i)}</td>
@@ -1158,16 +1160,21 @@ function renderClose(confirming){
     return;
   }
   panel.innerHTML = `<div class="notice"><strong>¿Cerrar el día?</strong> Se guarda la planilla con ${fmt(all.length)} productos: ${fmt(done.length)} contados (${fmt(conAjuste.length)} con ajuste)${pend ? ` y ${fmt(pend)} sin contar` : ''}. Después la podés descargar desde “Cierres anteriores”.
-    <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cv>Cerrar y vaciar la lista</button><button class="btn" type="button" data-cm>Cerrar y mantener la lista</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
+    ${pend ? `<br><strong>${pend === 1 ? 'El producto pendiente sigue' : `Los ${fmt(pend)} pendientes siguen`} en la lista</strong> para contarlos después, aunque cargues una lista nueva.` : ''}
+    <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cv>${pend ? 'Cerrar día (quitar los contados, dejar los pendientes)' : 'Cerrar día y vaciar la lista'}</button><button class="btn" type="button" data-cm>Cerrar y mantener toda la lista</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
   panel.querySelector('[data-no]').onclick = close;
+  // vaciar: saca de la lista lo contado; lo pendiente queda marcado con el día en que quedó sin contar.
   const go = async vaciar => {
     for (const b of panel.querySelectorAll('button')) b.disabled = true;
     try {
-      const filas = all.map(planillaRow);
-      await db.collection('cierres').add({ fecha:new Date().toISOString(), cerradoPor:me.name, cerradoPorMail:me.email, filas,
+      const filas = all.map(planillaRow), hoy = new Date().toISOString();
+      await db.collection('cierres').add({ fecha:hoy, cerradoPor:me.name, cerradoPorMail:me.email, filas,
         totales:{ productos:all.length, contados:done.length, conAjuste:conAjuste.length, pendientes:pend, neto:done.reduce((s, i) => s + (i.contado - i.stock), 0) } });
-      if (vaciar) await writeAll(all.map(i => ({ type:'delete', path:'items/' + i.id })), n => { $('resStatus').textContent = `Vaciando la lista… ${n}`; });
-      close(); $('resStatus').textContent = vaciar ? 'Día cerrado y lista vaciada. La planilla quedó en “Cierres anteriores”.' : 'Día cerrado. La planilla quedó en “Cierres anteriores”.';
+      if (vaciar) await writeAll(all.map(i => i.contado != null ? { type:'delete', path:'items/' + i.id }
+        : { type:'update', path:'items/' + i.id, data:{ pendienteDesde: i.pendienteDesde || hoy } }), n => { $('resStatus').textContent = `Cerrando el día… ${n}`; });
+      close(); $('resStatus').textContent = vaciar
+        ? `Día cerrado. Se ${done.length === 1 ? 'quitó 1 contado' : `quitaron ${fmt(done.length)} contados`}${pend ? ` y ${pend === 1 ? 'quedó 1 pendiente' : `quedaron ${fmt(pend)} pendientes`} para contar` : ''}. La planilla quedó en “Cierres anteriores”.`
+        : 'Día cerrado. La planilla quedó en “Cierres anteriores” y la lista no cambió.';
     } catch (err) { $('resStatus').textContent = 'No se pudo cerrar el día: ' + writeErr(err); close(); }
     renderRes();
   };
@@ -1313,7 +1320,7 @@ function renderHugo(){
   $('hList').innerHTML = list.map(i => {
     const d = i.contado == null ? null : i.contado - i.stock;
     const right = d == null ? `<span class="muted num">Sist. ${fmt(i.stock)}</span>` : `<span class="diff num ${d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmt(i.contado)} (${d === 0 ? 'OK' : fmtDiff(d)})</span>`;
-    return `<button type="button" data-cod="${esc(i.cod)}"><span class="t"><span class="d">${esc(i.desc)}</span><br><span class="muted mono">${esc(i.cod)}${i.bar ? ' · ' + esc(i.bar) : ' · sin código de barras'}</span>${i.contado != null && i.contadoPor ? `<span class="muted"> · contó ${esc(i.contadoPor)}</span>` : ''}</span>${right}</button>`;
+    return `<button type="button" data-cod="${esc(i.cod)}"><span class="t"><span class="d">${esc(i.desc)}</span><br><span class="muted mono">${esc(i.cod)}${i.bar ? ' · ' + esc(i.bar) : ' · sin código de barras'}</span>${i.contado != null && i.contadoPor ? `<span class="muted"> · contó ${esc(i.contadoPor)}</span>` : ''}${i.contado == null && i.pendienteDesde ? `<br><span class="pill over">Pendiente del ${fmtDia(i.pendienteDesde)}</span>` : ''}</span>${right}</button>`;
   }).join('') || `<div class="empty">${!db ? 'La lista aparece cuando entrás con tu cuenta.' : hFilter === 'pend' ? (all.length ? 'Contaste todo lo pedido.' : 'Todavía no hay productos para contar. Se arman desde el escritorio.') : 'Todavía no contaste nada.'}</div>`;
   if (current && hMode === 'conteo') { const it = itemFor(current.cod); if (it && !document.activeElement?.closest?.('#hCard')) renderCard(); }
 }
