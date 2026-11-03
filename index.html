@@ -1094,10 +1094,19 @@ $('resBody').addEventListener('click', async e => {
   try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
 });
 function tableRows(){
-  return [PLANILLA_HEAD, ...sortedItems().map(planillaRow).map(planillaCells)];
+  return planillaTabla(sortedItems().map(planillaRow));
+}
+// El Excel sale en dos bloques: primero lo apto (todos los productos) y abajo lo no apto (solo los que tienen).
+// El motivo del ajuste se sigue guardando en el cierre, pero no va en el Excel.
+const PLANILLA_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
+const NOAPTO_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','No apto','Contado el','Contado por'];
+const fechaCelda = r => r.contadoEn ? new Date(r.contadoEn).toLocaleString('es-AR') : '';
+function planillaTabla(filas){
+  const noApto = filas.filter(r => r.noApto > 0);
+  return [['APTO'], PLANILLA_HEAD, ...filas.map(planillaCells), [], ['NO APTO'], NOAPTO_HEAD,
+    ...(noApto.length ? noApto.map(r => [r.cod, r.bar, r.desc, r.rubro, r.noApto, fechaCelda(r), r.contadoPor]) : [['Sin productos no aptos']])];
 }
 // Una fila de la planilla tal como queda guardada en un cierre del día.
-const PLANILLA_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','No apto','Diferencia','Estado','Motivo del ajuste','Detalle del ajuste','Contado el','Contado por','Agregado en el celular'];
 function planillaRow(i){
   const d = i.contado == null ? null : i.contado - i.stock, st = stateOf(i);
   return { cod:i.cod, bar:i.bar || '', desc:i.desc || '', rubro:i.rubro || '', stock:i.stock, contado:i.contado ?? null, apto:i.contado == null ? null : (i.apto ?? i.contado), noApto:i.contado == null ? null : (i.noApto || 0),
@@ -1105,7 +1114,7 @@ function planillaRow(i){
     ajusteMotivo: needsAjuste(i) ? i.ajusteMotivo || '' : '', ajusteDetalle: needsAjuste(i) ? i.ajusteDetalle || '' : '',
     contadoEn:i.contadoEn || '', contadoPor:i.contado != null ? i.contadoPor || '' : '', extra:!!i.extra };
 }
-const planillaCells = r => [r.cod, r.bar, r.desc, r.rubro, r.stock, r.contado ?? '', r.apto ?? '', r.noApto ?? '', r.diff ?? '', r.estado, r.ajusteMotivo, r.ajusteDetalle, r.contadoEn ? new Date(r.contadoEn).toLocaleString('es-AR') : '', r.contadoPor, r.extra ? 'Si' : ''];
+const planillaCells = r => [r.cod, r.bar, r.desc, r.rubro, r.stock, r.contado ?? '', r.apto ?? '', r.diff ?? '', r.estado, fechaCelda(r), r.contadoPor, r.extra ? 'Si' : ''];
 // Guarda el motivo/detalle del ajuste apenas se cambia; al salir del campo se vuelve a dibujar la tabla.
 $('resBody').addEventListener('change', async e => {
   const f = e.target.closest('[data-aj]'); if (!f || !db) return;
@@ -1187,7 +1196,7 @@ function renderCierres(){
       <td><div class="rowbtns"><button class="btn" type="button" data-ccopy="${esc(c.id)}">Copiar para Excel</button><button class="btn" type="button" data-ccsv="${esc(c.id)}">Descargar CSV</button></div></td></tr>`; }).join('')
     || `<tr><td colspan="7" class="empty">${db ? 'Todavía no se cerró ningún día. Cuando termines el conteo, tocá “Cerrar día”.' : 'Los cierres aparecen cuando entrás con tu cuenta.'}</td></tr>`;
 }
-const cierreTabla = c => [PLANILLA_HEAD, ...(c.filas || []).map(planillaCells)];
+const cierreTabla = c => planillaTabla(c.filas || []);
 $('cierresBody').addEventListener('click', async e => {
   const cp = e.target.closest('[data-ccopy]'), cv = e.target.closest('[data-ccsv]');
   const c = cierres.find(x => x.id === (cp || cv)?.dataset[cp ? 'ccopy' : 'ccsv']); if (!c) return;
