@@ -506,7 +506,6 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
           <button class="chip" data-f="diff" aria-pressed="false">Con diferencia</button>
           <button class="chip" data-f="ok" aria-pressed="false">Coinciden</button>
           <button class="chip" data-f="extra" aria-pressed="false">Agregados en el celular</button>
-          <button class="chip" data-f="nomot" aria-pressed="false">Sin motivo de ajuste</button>
           <button class="chip" data-f="prev" aria-pressed="false">De días anteriores</button>
         </div>
         <div class="row">
@@ -521,7 +520,7 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
       <div id="closePanel"></div>
       <div class="tablebox">
         <table>
-          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th data-k="ajuste">Motivo del ajuste</th><th></th></tr></thead>
+          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th></th></tr></thead>
           <tbody id="resBody"></tbody>
         </table>
       </div>
@@ -717,7 +716,7 @@ let adminEdit = null; // {kind, id}: fila que se edita en el escritorio (kind 'i
 // tipo: n = número (mayor a menor primero), t = texto (A→Z primero), d = fecha (más nuevos primero)
 const SORTS = {
   arm: { k:'stock', dir:-1, keys:{ stock:['Stock','n'], ptocri:['Punto crítico','n'], desc:['Descripción','t'], cod:['Código interno','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
-  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], ajuste:['Motivo del ajuste','t'], bar:['Código de barras','t'] } },
+  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], bar:['Código de barras','t'] } },
 };
 for (const k in KINDS) SORTS['mov_' + k] = { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], stock:['Stock sistema','n'], total:[KINDS[k].totalLabel,'n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], por:['Cargó','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } };
 const cmpVal = (a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
@@ -1039,14 +1038,13 @@ function renderRes(){
     if (adminEdit?.kind === 'items' && adminEdit.id === i.id){
       return `<tr class="editrow"><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)}</td>
         <td class="r num">${fmt(i.stock)}</td><td class="r" colspan="2"><div class="rowbtns" style="justify-content:flex-end"><label class="muted">Apto <input id="ae_cont" type="number" min="0" step="1" value="${i.contado != null ? (i.apto ?? i.contado) : ''}" aria-label="Cantidad apta"></label><label class="muted">No apto <input id="ae_noapto" type="number" min="0" step="1" value="${i.noApto || ''}" aria-label="Cantidad no apta"></label></div></td>
-        <td colspan="5"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
+        <td colspan="4"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
     }
     return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.pendienteDesde ? ` <span class="pill over">Pendiente del ${fmtDia(i.pendienteDesde)}</span>` : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
       <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}${i.noApto ? `<br><span class="muted" style="color:var(--bad)">${fmt(i.noApto)} no apto</span>` : ''}</td>
       <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
-      <td>${ajusteCell(i)}</td>
       <td><div class="rowbtns"><button class="btn" type="button" data-cedit="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-del="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
-  }).join('') || `<tr><td colspan="11" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
+  }).join('') || `<tr><td colspan="10" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
   renderClose(false);
 }
 $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
@@ -1159,15 +1157,9 @@ function renderClose(confirming){
     return;
   }
   panel.dataset.open = '1';
-  const all = sortedItems(), done = all.filter(i => i.contado != null), conAjuste = done.filter(needsAjuste), faltan = conAjuste.filter(i => !i.ajusteMotivo), pend = all.length - done.length;
+  // Nov. 2026: ya no se pide motivo del ajuste para cerrar el día (pedido del usuario).
+  const all = sortedItems(), done = all.filter(i => i.contado != null), conAjuste = done.filter(needsAjuste), pend = all.length - done.length;
   const close = () => { panel.dataset.open = ''; panel.innerHTML = ''; };
-  if (faltan.length){
-    panel.innerHTML = `<div class="notice warn"><strong>Antes de cerrar, cargá el motivo del ajuste de ${faltan.length} ${faltan.length === 1 ? 'producto' : 'productos'} con diferencia.</strong>
-      <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-ver>Ver cuáles faltan</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
-    panel.querySelector('[data-ver]').onclick = () => { close(); resFilter = 'nomot'; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c.dataset.f === 'nomot'); renderRes(); };
-    panel.querySelector('[data-no]').onclick = close;
-    return;
-  }
   panel.innerHTML = `<div class="notice"><strong>¿Cerrar el día?</strong> Se guarda la planilla con ${fmt(all.length)} productos: ${fmt(done.length)} contados (${fmt(conAjuste.length)} con ajuste)${pend ? ` y ${fmt(pend)} sin contar` : ''}. Después la podés descargar desde “Cierres anteriores”.
     ${pend ? `<br><strong>${pend === 1 ? 'El producto pendiente sigue' : `Los ${fmt(pend)} pendientes siguen`} en la lista</strong> para contarlos después, aunque cargues una lista nueva.` : ''}
     <div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cv>${pend ? 'Cerrar día (quitar los contados, dejar los pendientes)' : 'Cerrar día y vaciar la lista'}</button><button class="btn" type="button" data-cm>Cerrar y mantener toda la lista</button><button class="btn" type="button" data-no>Cancelar</button></div></div>`;
@@ -1908,7 +1900,7 @@ $('bLiveClose').onclick = stopLive;
 /* ---------- Render general ---------- */
 function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderNegPhone(); renderCierres(); }
 sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
-sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor','ajuste']);
+sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor']);
 wireSort('arm', $('sArm'), $('armHead'), renderArmar);
 wireSort('res', $('sRes'), $('resHead'), renderRes);
 sortOptions($('sNeg'), SORTS.neg, ['diff','stock','contado','desc','cod','motivo','contadoPor','contadoEn']);
