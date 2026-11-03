@@ -96,8 +96,9 @@ h3{font-size:18px}
 .tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--tape)}
 .tabs .count{font-family:var(--font-body);font-size:12px;background:var(--surface-2);border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:2px}
 
-.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1.3fr 1.3fr .7fr;gap:10px;align-items:end;margin-bottom:12px}
-@media (max-width:1000px){.filters{grid-template-columns:1fr 1fr}}
+.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;align-items:end;margin-bottom:12px}
+.filters .wide{grid-column:span 2}
+@media (max-width:560px){.filters{grid-template-columns:1fr 1fr}.filters .wide{grid-column:1/-1}}
 th[data-k]{cursor:pointer;user-select:none}
 th[data-k]:hover{color:var(--fg)}
 th[data-dir="1"],th[data-dir="-1"]{color:var(--fg)}
@@ -457,22 +458,46 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
         <div class="status" id="massStatus"></div>
       </div>
       <div class="filters">
-        <label class="field"><span class="label">Buscar</span><input id="fQ" type="search" placeholder="Descripción, código interno o de barras"></label>
+        <label class="field wide"><span class="label">Buscar</span><input id="fQ" type="search" placeholder="Descripción, código interno o de barras"></label>
         <label class="field"><span class="label">Rubro</span><select id="fA"><option value="">Todos</option></select></label>
         <label class="field"><span class="label">Subrubro</span><select id="fB"><option value="">Todos</option></select></label>
+        <label class="field" id="fCWrap" hidden><span class="label">Grupo</span><select id="fC"><option value="">Todos</option></select></label>
         <label class="field"><span class="label">Stock</span>
           <select id="fLow">
             <option value="">Cualquier stock</option>
+            <option value="pos">Con stock (mayor a 0)</option>
+            <option value="le0">Sin stock: 0 o negativo</option>
+            <option value="eq0">Igual a 0</option>
+            <option value="neg">Negativo (menor a 0)</option>
+            <option value="lt">Menor que…</option>
+            <option value="n">Menor o igual a…</option>
+            <option value="gt">Mayor que…</option>
+            <option value="ge">Mayor o igual a…</option>
+            <option value="btw">Entre… y…</option>
             <option value="ptocri">Bajo: stock ≤ punto crítico</option>
             <option value="min">Bajo: stock ≤ mínimo</option>
-            <option value="n">Bajo: stock ≤ cantidad…</option>
+          </select></label>
+        <label class="field" id="fNWrap" hidden><span class="label" id="fNLabel">Cantidad</span><input id="fN" type="number" inputmode="numeric" value="10"></label>
+        <label class="field" id="fN2Wrap" hidden><span class="label">Hasta</span><input id="fN2" type="number" inputmode="numeric" value="50"></label>
+        <label class="field"><span class="label">Código de barras</span><select id="fBar"><option value="">Todos</option><option value="con">Con código</option><option value="sin">Sin código</option></select></label>
+        <label class="field"><span class="label">Último conteo</span>
+          <select id="fLast">
+            <option value="">Cualquiera</option>
+            <option value="nunca">Nunca contados</option>
+            <option value="no7">No contados en 7 días</option>
+            <option value="no15">No contados en 15 días</option>
+            <option value="no30">No contados en 30 días</option>
+            <option value="no60">No contados en 60 días</option>
+            <option value="si7">Contados en los últimos 7 días</option>
+            <option value="dif">Con diferencia en el último conteo</option>
+            <option value="ok">Coincidieron en el último conteo</option>
           </select></label>
         <label class="field"><span class="label">Ordenar por</span><select id="sArm"></select></label>
-        <label class="field" id="fNWrap" hidden><span class="label">Cantidad</span><input id="fN" type="number" inputmode="numeric" value="10"></label>
       </div>
       <div class="row" style="margin-bottom:12px">
         <label class="check"><input id="fZero" type="checkbox"> Incluir stock 0 o negativo</label>
         <label class="check"><input id="fNoList" type="checkbox"> Ocultar los que ya están en la lista</label>
+        <button class="btn" id="bFClear" type="button">Limpiar filtros</button>
       </div>
       <div class="bar">
         <div><strong class="num" id="armCount">0</strong> productos filtrados · <strong class="num" id="selCount">0</strong> marcados</div>
@@ -808,6 +833,15 @@ function fillB(){
   const keep = $('fB').value;
   $('fB').innerHTML = '<option value="">Todos</option>' + bs.map(b => `<option>${esc(b)}</option>`).join('');
   if (bs.includes(keep)) $('fB').value = keep;
+  fillC();
+}
+// Tercer nivel (nombre_c del stock): el filtro solo aparece si el Excel lo trae.
+function fillC(){
+  const a = $('fA').value, b = $('fB').value, keep = $('fC').value;
+  const cs = [...new Set(catalog.filter(p => (!a || p.a === a) && (!b || p.b === b)).map(p => p.c).filter(Boolean))].sort();
+  $('fCWrap').hidden = !catalog.some(p => p.c);
+  $('fC').innerHTML = '<option value="">Todos</option>' + cs.map(c => `<option>${esc(c)}</option>`).join('');
+  if (cs.includes(keep)) $('fC').value = keep;
 }
 let loadedVersion = null;
 async function loadCatalog(meta){
@@ -871,17 +905,46 @@ $('bImp').onclick = async () => {
 
 /* ---------- Armar lista ---------- */
 function inListCods(){ const s = new Set(); for (const it of items.values()) s.add(it.cod); return s; }
+// Último conteo de cada producto: el de la lista actual o el más nuevo de los cierres guardados.
+function lastCounts(){
+  const m = new Map(), put = (cod, at, diff) => { if (!cod || !at) return; const o = m.get(cod); if (!o || at > o.at) m.set(cod, { at, diff }); };
+  for (const c of cierres) for (const r of c.filas || []) if (r.contado != null) put(r.cod, r.contadoEn || c.fecha, r.diff);
+  for (const it of items.values()) if (it.contado != null) put(it.cod, it.contadoEn, it.contado - it.stock);
+  return m;
+}
+// Opciones de stock que ya apuntan a 0 o negativos: ahí no hace falta tildar "Incluir stock 0 o negativo".
+const LOW_CERO = ['le0', 'eq0', 'neg'], LOW_NUM = ['lt', 'n', 'gt', 'ge', 'btw'];
 function filtered(){
   const q = norm($('fQ').value).trim().split(/\s+/).filter(Boolean);
-  const a = $('fA').value, b = $('fB').value, low = $('fLow').value, N = +$('fN').value || 0;
-  const zero = $('fZero').checked, noList = $('fNoList').checked, inl = inListCods();
+  const a = $('fA').value, b = $('fB').value, c = $('fC').value, low = $('fLow').value, N = +$('fN').value || 0, N2 = +$('fN2').value || 0;
+  const zero = $('fZero').checked || LOW_CERO.includes(low) || (['lt', 'n', 'btw'].includes(low) && Math.min(N, low === 'btw' ? N2 : N) <= 0);
+  const noList = $('fNoList').checked, inl = inListCods(), bar = $('fBar').value, last = $('fLast').value, lc = last ? lastCounts() : null, ahora = Date.now();
   return catalog.filter(p => {
     if (a && p.a !== a) return false;
     if (b && p.b !== b) return false;
+    if (c && p.c !== c) return false;
     if (!zero && p.stock <= 0) return false;
+    if (low === 'pos' && !(p.stock > 0)) return false;
+    if (low === 'le0' && !(p.stock <= 0)) return false;
+    if (low === 'eq0' && p.stock !== 0) return false;
+    if (low === 'neg' && !(p.stock < 0)) return false;
     if (low === 'ptocri' && !(p.ptocri > 0 && p.stock <= p.ptocri)) return false;
     if (low === 'min' && !(p.min > 0 && p.stock <= p.min)) return false;
+    if (low === 'lt' && !(p.stock < N)) return false;
     if (low === 'n' && !(p.stock <= N)) return false;
+    if (low === 'gt' && !(p.stock > N)) return false;
+    if (low === 'ge' && !(p.stock >= N)) return false;
+    if (low === 'btw' && !(p.stock >= Math.min(N, N2) && p.stock <= Math.max(N, N2))) return false;
+    if (bar === 'con' && !p.bar) return false;
+    if (bar === 'sin' && p.bar) return false;
+    if (last){
+      const l = lc.get(p.cod), dias = l ? (ahora - Date.parse(l.at)) / 864e5 : Infinity;
+      if (last === 'nunca' && l) return false;
+      if (/^no\d+$/.test(last) && !(dias > +last.slice(2))) return false;
+      if (last === 'si7' && !(dias <= 7)) return false;
+      if (last === 'dif' && !(l && l.diff)) return false;
+      if (last === 'ok' && !(l && l.diff === 0)) return false;
+    }
     if (noList && inl.has(p.cod)) return false;
     for (const w of q) if (!p._s.includes(w)) return false;
     return true;
@@ -909,9 +972,21 @@ $('armBody').addEventListener('click', e => {
   if (selected.has(cod)) selected.delete(cod); else selected.add(cod);
   renderArmar();
 });
-for (const id of ['fQ','fB','fN','fZero','fNoList']) $(id).addEventListener('input', () => { armLimit = 300; renderArmar(); });
+for (const id of ['fQ','fC','fN','fN2','fZero','fNoList','fBar','fLast']) $(id).addEventListener('input', () => { armLimit = 300; renderArmar(); });
 $('fA').addEventListener('input', () => { fillB(); armLimit = 300; renderArmar(); });
-$('fLow').addEventListener('input', () => { $('fNWrap').hidden = $('fLow').value !== 'n'; armLimit = 300; renderArmar(); });
+$('fB').addEventListener('input', () => { fillC(); armLimit = 300; renderArmar(); });
+function lowUI(){
+  const low = $('fLow').value;
+  $('fNWrap').hidden = !LOW_NUM.includes(low); $('fN2Wrap').hidden = low !== 'btw';
+  $('fNLabel').textContent = low === 'btw' ? 'Desde' : 'Cantidad';
+  $('fZero').disabled = LOW_CERO.includes(low);
+}
+$('fLow').addEventListener('input', () => { lowUI(); armLimit = 300; renderArmar(); });
+$('bFClear').onclick = () => {
+  $('fQ').value = ''; for (const id of ['fA','fB','fC','fLow','fBar','fLast']) $(id).value = '';
+  $('fN').value = 10; $('fN2').value = 50; $('fZero').checked = false; $('fNoList').checked = false;
+  fillB(); lowUI(); armLimit = 300; renderArmar();
+};
 $('bMore').onclick = () => { armLimit += 500; renderArmar(); };
 $('bSelAll').onclick = () => { for (const p of filtered()) selected.add(p.cod); renderArmar(); };
 $('bSelNone').onclick = () => { selected.clear(); renderArmar(); };
