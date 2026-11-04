@@ -379,6 +379,8 @@ body.app-in #admin,body.app-in #hugo{animation:fadeUp .5s var(--ease-out) .08s b
 .modes.has-pill button#m_bajas[aria-pressed="true"],.modes.has-pill button#m_sueltos[aria-pressed="true"],
 .modes.has-pill button#mConteo[aria-pressed="true"]{background:transparent;box-shadow:none}
 .tabs{position:relative}
+.syncbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin:-6px 0 14px}
+.syncbar .status{margin:0}
 .tabs .tab-bar-ind{position:absolute;left:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--tape);pointer-events:none;
   transition:transform .26s var(--ease-in-out),width .26s var(--ease-in-out)}
 .tabs.has-ind button[aria-selected="true"]{border-bottom-color:transparent}
@@ -447,6 +449,11 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
       <button role="tab" id="tNeg" aria-selected="false">Negativos <span class="count num" id="cntNeg">0</span></button>
       <button role="tab" id="tCat" aria-selected="false">Stock del sistema</button>
     </nav>
+    <div class="syncbar">
+      <span class="status" id="syncStatus"></span>
+      <input id="syncFile" type="file" accept=".xls,.xlsx,.csv" hidden>
+      <button class="btn primary" id="bSync" type="button" disabled>Sincronizar stock</button>
+    </div>
 
     <div id="pArmar">
       <div class="massbox">
@@ -871,6 +878,39 @@ $('bImp').onclick = async () => {
   const f = $('impFile').files[0]; if (!f) return;
   const st = $('impStatus'); st.className = 'status'; $('bImp').disabled = true;
   try {
+    const rows = await importarStock(f, st);
+    const n = await syncItems(rows);
+    st.textContent = `Listo: ${fmt(rows.length)} productos importados` + (n ? ` y ${fmt(n)} de la lista de conteo con el stock nuevo.` : '.');
+  } catch (e) { st.className = 'status err'; st.textContent = 'No se pudo importar: ' + (e.message || e.code); }
+  $('bImp').disabled = false;
+};
+// "Sincronizar stock": el mismo import, desde un botón siempre visible arriba de las pestañas.
+$('bSync').onclick = () => { $('syncFile').value = ''; $('syncFile').click(); };
+$('syncFile').onchange = async () => {
+  const f = $('syncFile').files[0]; if (!f || !db) return;
+  const st = $('syncStatus'); st.className = 'status'; $('bSync').disabled = true;
+  try {
+    const rows = await importarStock(f, st);
+    const n = await syncItems(rows);
+    st.textContent = `Stock sincronizado: ${fmt(rows.length)} productos` + (n ? ` · ${fmt(n)} de la lista de conteo actualizados` : '') + '.';
+    toast('Stock sincronizado');
+  } catch (e) { st.className = 'status err'; st.textContent = 'No se pudo sincronizar: ' + (e.message || e.code); }
+  $('bSync').disabled = false;
+};
+// En la lista de conteo, los productos que todavía no se contaron toman el stock nuevo.
+// Los ya contados no se tocan, así su diferencia queda contra el stock que tenían al contarlos.
+async function syncItems(rows){
+  const nuevo = new Map(rows.map(r => [r[0], r[3]])), cambios = [];
+  for (const [id, it] of items) if (it.contado == null && nuevo.has(it.cod) && nuevo.get(it.cod) !== it.stock) cambios.push([id, nuevo.get(it.cod)]);
+  for (let i = 0; i < cambios.length; i += 400){
+    const b = db.batch();
+    for (const [id, stock] of cambios.slice(i, i + 400)) b.update(db.doc('items/' + id), { stock });
+    await b.commit();
+  }
+  return cambios.length;
+}
+async function importarStock(f, st){
+  {
     st.textContent = 'Leyendo el archivo…';
     await needXLSX();
     const wb = XLSX.read(await f.arrayBuffer(), { type:'array' });
@@ -898,10 +938,10 @@ $('bImp').onclick = async () => {
     const old = catMeta?.chunks || 0;
     for (let i = chunks; i < old; i++) await db.doc('catalogo_partes/c' + i).delete();
     await db.doc('catalogo/meta').set({ version: Date.now(), total: rows.length, chunks, fuente: f.name, importado: new Date().toISOString() });
-    st.textContent = `Listo: ${fmt(rows.length)} productos importados.`;
-  } catch (e) { st.className = 'status err'; st.textContent = 'No se pudo importar: ' + (e.message || e.code); }
-  $('bImp').disabled = false;
-};
+    st.textContent = 'Actualizando la lista de conteo…';
+    return rows;
+  }
+}
 
 /* ---------- Armar lista ---------- */
 function inListCods(){ const s = new Set(); for (const it of items.values()) s.add(it.cod); return s; }
@@ -2019,14 +2059,14 @@ renderAll();
     unsubs.forEach(f => f()); unsubs = [];
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
-    if (!u){ db = null; items = new Map(); negs = new Map(); cierres = []; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    if (!u){ $('bSync').disabled = true; db = null; items = new Map(); negs = new Map(); cierres = []; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
     $('whoMail').textContent = u.email || '';
     // El nombre que queda registrado en cada carga: el primer nombre de la cuenta de Google.
     me = { email: (u.email || '').toLowerCase(), name: (u.displayName || '').trim().split(/\s+/)[0] || (u.email || '').split('@')[0] };
     $('hWho').textContent = '· ' + me.name;
     db = fs; canWrite = true; notice.hidden = true; loadedVersion = null;
     setView(currentView);
-    $('bImp').disabled = !$('impFile').files.length;
+    $('bImp').disabled = !$('impFile').files.length; $('bSync').disabled = false;
     unsubs.push(db.doc('catalogo/meta').onSnapshot(s => loadCatalog(s.exists ? s.data() : null), denied));
     unsubs.push(db.collection('items').limit(1000).onSnapshot(snap => {
       items = new Map(snap.docs.map(d => [d.id, d.data()]));
