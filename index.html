@@ -2055,8 +2055,15 @@ renderAll();
     if (e.code === 'permission-denied') warn(`<strong>La cuenta ${esc(auth.currentUser?.email || '')} no está autorizada.</strong> El administrador tiene que agregar este mail en las reglas de Firestore. Mientras tanto podés tocar “Salir” y entrar con otra cuenta.`);
     else warn('Se cortó la actualización en vivo (' + esc(e.code) + '). Recargá la página.');
   };
+  // Nov. 2026: el script «publicador» (abajo, aparte) lee estos datos para mandar un resumen
+  // al Dashboard del Parte diario. Solo publica cuando llegaron las 5 colecciones (si falta permiso, nunca llegan).
+  // Si la primera foto sale de la copia local y el servidor trae cambios, llega otra foto y se vuelve a publicar.
+  const pubListo = new Set();
+  const pubVio = (k, snap) => { pubListo.add(k); try { window.__conteoPub?.cambio(); } catch {} };
+  window.__conteoEstado = () => ({ listo: !!db && ['items', 'negativos', 'bajas', 'sueltos', 'cierres'].every(k => pubListo.has(k)),
+    por: me.name, items: [...items.values()], negativos: [...negs.values()], bajas: movs.bajas, sueltos: movs.sueltos, cierres });
   auth.onAuthStateChanged(u => {
-    unsubs.forEach(f => f()); unsubs = [];
+    unsubs.forEach(f => f()); unsubs = []; pubListo.clear();
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
     if (!u){ $('bSync').disabled = true; db = null; items = new Map(); negs = new Map(); cierres = []; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
@@ -2071,23 +2078,159 @@ renderAll();
     unsubs.push(db.collection('items').limit(1000).onSnapshot(snap => {
       items = new Map(snap.docs.map(d => [d.id, d.data()]));
       renderArmar(); renderRes(); renderHugo(); renderClear(false);
+      pubVio('items', snap);
     }, denied));
     unsubs.push(db.collection('negativos').limit(1000).onSnapshot(snap => {
       negs = new Map(snap.docs.map(d => [d.id, d.data()]));
       renderNegAdmin(); renderNegPhone();
+      pubVio('negativos', snap);
     }, denied));
     for (const k in KINDS) unsubs.push(db.collection(KINDS[k].col).orderBy('fecha', 'desc').limit(1000).onSnapshot(snap => {
       movs[k] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (hMode === k){ renderMovPhone(); if (editing && current && !document.activeElement?.closest?.('#hCard')) renderCard(); }
       renderMovAdmin(k);
+      pubVio(k, snap);
     }, denied));
     unsubs.push(db.collection('cierres').orderBy('fecha', 'desc').limit(100).onSnapshot(snap => {
       cierres = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderCierres();
+      pubVio('cierres', snap);
     }, denied));
     renderAll();
   });
 })();
+})();
+</script>
+<script>
+/* Nov. 2026 — Publicador del resumen para el Dashboard del Parte diario.
+   La base de esta app (Firestore conteo-stock-705da) solo la pueden leer los mails autorizados, así que el
+   Dashboard (público) no puede leerla. Por eso, cada vez que cambian los datos que la app ya tiene en memoria
+   (lista del conteo, roturas, sueltos, negativos y cierres), se calcula un resumen chico y se guarda en la
+   Realtime Database pública del Parte diario: tablero/conteo. Script aparte: no cambia la lógica de la app,
+   solo lee window.__conteoEstado() (lo expone el script principal). No publica:
+   · si la sesión todavía no cargó las 5 colecciones (o no tiene permiso: con permiso denegado nunca llegan);
+   · en la vista previa local (localhost) ni con el mock de diseño (no hay sesión);
+   · si el resumen no cambió desde la última vez. Si no hay red, avisa en la consola y sigue. */
+(() => {
+  'use strict';
+  const URL_PUB = 'https://portal-logistica-2c88c-default-rtdb.firebaseio.com/tablero/conteo.json';
+  const ESPERA = 5000;          // ms sin cambios antes de publicar (debounce)
+  const TZ = 'America/Argentina/Buenos_Aires';
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+  // Fecha local de Argentina (AAAA-MM-DD) de un ISO o Date.
+  const diaAR = v => { const d = v instanceof Date ? v : new Date(v); return isNaN(d) ? '' : d.toLocaleDateString('sv-SE', { timeZone: TZ }); };
+  const sumD = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const lunesDe = iso => { const d = new Date(iso + 'T12:00:00Z'); return sumD(iso, -((d.getUTCDay() + 6) % 7)); };
+  const N = v => Number(v) || 0;
+  const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : null;
+  const corto = (s, n) => String(s ?? '').slice(0, n || 60);
+  // Agrupa una lista: clave → {u, cargas}; devuelve los primeros n ordenados por unidades.
+  function top(lista, clave, n, extra){
+    const g = new Map();
+    for (const x of lista){ const k = clave(x) || 'Sin dato'; const r = g.get(k) || { k, u: 0, cargas: 0, ...(extra ? extra(x) : {}) }; r.u += N(x.cantidad); r.cargas++; g.set(k, r); }
+    return [...g.values()].sort((a, b) => b.u - a.u || b.cargas - a.cargas).slice(0, n);
+  }
+  const tot = l => ({ u: l.reduce((s, x) => s + N(x.cantidad), 0), cargas: l.length });
+  const exactitudDe = filas => { const c = filas.filter(r => r.contado != null), ok = c.filter(r => N(r.contado) - N(r.stock) === 0).length;
+    return { contados: c.length, coinciden: ok, exactitud: pct(ok, c.length) }; };
+
+  // Arma el resumen. ahora: Date (para probar con otra fecha).
+  function calcular(E, ahora){
+    ahora = ahora || new Date();
+    const hoy = diaAR(ahora), mes = hoy.slice(0, 7), lun = lunesDe(hoy);
+    const dAnt = new Date(hoy.slice(0, 7) + '-15T12:00:00Z'); dAnt.setUTCMonth(dAnt.getUTCMonth() - 1);
+    const mesAnt = dAnt.toISOString().slice(0, 7);
+    const finMesAnt = sumD(mes + '-01', -1);
+    const hastaAnt = (mesAnt + '-' + hoy.slice(8, 10)) > finMesAnt ? finMesAnt : mesAnt + '-' + hoy.slice(8, 10); // mismo tramo, sin pasarse del fin de mes
+    const conDia = l => (l || []).map(x => ({ ...x, dia: diaAR(x.fecha) })).filter(x => x.dia);
+    const B = conDia(E.bajas), S = conDia(E.sueltos);
+    const entre = (l, a, b) => l.filter(x => x.dia >= a && x.dia <= b);
+    const bMes = entre(B, mes + '-01', hoy), sMes = entre(S, mes + '-01', hoy);
+    const ultB = B[0] ? B.reduce((a, x) => (x.fecha > a.fecha ? x : a), B[0]) : null;
+    const masVieja = B.length ? B.reduce((a, x) => (x.fecha < a ? x.fecha : a), B[0].fecha) : null;
+
+    const roturas = {
+      hoy: tot(entre(B, hoy, hoy)),
+      semana: { ...tot(entre(B, lun, hoy)), desde: lun },
+      mes: { ...tot(bMes), productos: new Set(bMes.map(x => x.cod)).size },
+      mesAnt: { ...tot(entre(B, mesAnt + '-01', hastaAnt)), desde: mesAnt + '-01', hasta: hastaAnt },
+      mesAntCompleto: tot(entre(B, mesAnt + '-01', finMesAnt)),
+      // la app trae las últimas 1.000 cargas: si la más vieja es posterior al 1° del mes anterior, la comparación queda corta
+      historialCompleto: B.length < 1000 || (masVieja && diaAR(masVieja) <= mesAnt + '-01'),
+      porMotivo: top(bMes, x => x.motivo, 8).map(r => ({ motivo: corto(r.k, 40), u: r.u, cargas: r.cargas })),
+      topProductos: top(bMes, x => x.cod, 8, x => ({ desc: corto(x.desc), rubro: corto(x.rubro, 40) })).map(r => ({ cod: String(r.k), desc: r.desc, rubro: r.rubro, u: r.u, cargas: r.cargas })),
+      topRubros: top(bMes, x => x.rubro, 6).map(r => ({ rubro: corto(r.k, 40), u: r.u, cargas: r.cargas })),
+      porPersona: top(bMes, x => x.por, 6).map(r => ({ por: corto(r.k, 30), u: r.u, cargas: r.cargas })),
+      ultima: ultB ? { fecha: ultB.fecha, cod: String(ultB.cod ?? ''), desc: corto(ultB.desc), u: N(ultB.cantidad), motivo: corto(ultB.motivo, 40), por: corto(ultB.por, 30) } : null,
+    };
+    const ultS = S[0] ? S.reduce((a, x) => (x.fecha > a.fecha ? x : a), S[0]) : null;
+    const sueltos = {
+      mes: { ...tot(sMes), productos: new Set(sMes.map(x => x.cod)).size },
+      porMotivo: top(sMes, x => x.motivo, 6).map(r => ({ motivo: corto(r.k, 40), u: r.u, cargas: r.cargas })),
+      ultima: ultS ? { fecha: ultS.fecha, desc: corto(ultS.desc), u: N(ultS.cantidad), motivo: corto(ultS.motivo, 40) } : null,
+    };
+
+    // Lista del conteo actual
+    const items = E.items || [], hechos = items.filter(i => i.contado != null), pend = items.filter(i => i.contado == null);
+    const conDif = hechos.filter(i => N(i.contado) !== N(i.stock));
+    const desdeP = i => i.pendienteDesde || i.agregado || '';
+    const viejo = pend.map(desdeP).filter(Boolean).sort()[0] || null;
+    const hace7 = sumD(hoy, -7);
+    const conteo = {
+      enLista: items.length, contados: hechos.length, pendientes: pend.length, conDiferencia: conDif.length,
+      coinciden: hechos.length - conDif.length, exactitud: pct(hechos.length - conDif.length, hechos.length),
+      unidadesFaltantes: conDif.reduce((s, i) => s + Math.max(0, N(i.stock) - N(i.contado)), 0),
+      unidadesSobrantes: conDif.reduce((s, i) => s + Math.max(0, N(i.contado) - N(i.stock)), 0),
+      neto: hechos.reduce((s, i) => s + N(i.contado) - N(i.stock), 0),
+      noApto: hechos.reduce((s, i) => s + N(i.noApto), 0),
+      contadosHoy: hechos.filter(i => i.contadoEn && diaAR(i.contadoEn) === hoy).length,
+      pendienteMasViejo: viejo,
+      pendientesViejos: pend.filter(i => desdeP(i) && diaAR(desdeP(i)) < hace7).length, // sin contar hace más de 7 días
+      topDiferencias: conDif.map(i => ({ cod: String(i.cod ?? ''), desc: corto(i.desc), stock: N(i.stock), contado: N(i.contado), diff: N(i.contado) - N(i.stock) }))
+        .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 6),
+    };
+
+    // Negativos: un negativo queda «resuelto» cuando se contó y se explicó qué pasó.
+    const negs = E.negativos || [], negC = negs.filter(n => n.contado != null);
+    const negativos = { total: negs.length, resueltos: negC.length, pendientes: negs.length - negC.length };
+
+    // Cierres del día (la planilla guardada trae las filas: de ahí sale la exactitud de cada cierre)
+    const cs = (E.cierres || []).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    const fila = c => { const t = c.totales || {}, x = exactitudDe(c.filas || []);
+      return { fecha: c.fecha, por: corto(c.cerradoPor, 30), productos: N(t.productos), contados: N(t.contados), conAjuste: N(t.conAjuste), pendientes: N(t.pendientes), neto: N(t.neto), exactitud: x.exactitud }; };
+    const c30 = cs.filter(c => diaAR(c.fecha) >= sumD(hoy, -30)), x30 = exactitudDe(c30.flatMap(c => c.filas || []));
+    const cierres = {
+      ultimo: cs[0] ? fila(cs[0]) : null,
+      ultimos: cs.slice(0, 8).map(fila),
+      dias30: { cierres: c30.length, contados: x30.contados, coinciden: x30.coinciden, exactitud: x30.exactitud },
+    };
+    return { v: 1, at: ahora.toISOString(), hoy, por: corto(E.por, 30), roturas, sueltos, conteo, negativos, cierres };
+  }
+
+  let timer = null, ultimoJSON = '', enviando = false;
+  async function publicar(){
+    timer = null;
+    let E; try { E = window.__conteoEstado && window.__conteoEstado(); } catch { E = null; }
+    if (!E || !E.listo) return;
+    const r = calcular(E);
+    const sinFecha = JSON.stringify({ ...r, at: '' });
+    if (sinFecha === ultimoJSON) return;
+    if (local && !window.__conteoPubForzar){ pub.ultimo = r; console.info('[publicador] vista previa local: no se publica', r); return; }
+    if (enviando){ programar(); return; }
+    enviando = true;
+    try {
+      const res = await fetch(URL_PUB, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      ultimoJSON = sinFecha; pub.ultimo = r;
+    } catch (e) { console.warn('[publicador] no se pudo publicar el resumen para el Dashboard:', e.message || e); }
+    finally { enviando = false; }
+  }
+  function programar(){ clearTimeout(timer); timer = setTimeout(publicar, ESPERA); }
+  const pub = window.__conteoPub = { cambio: programar, calcular, ultimo: null };
+  // Recalcula cada 30 min con la app abierta (cambia el día, la semana, los pendientes viejos…).
+  setInterval(() => { if (!document.hidden) programar(); }, 30 * 60000);
+  addEventListener('online', programar);
 })();
 </script>
 <script>
