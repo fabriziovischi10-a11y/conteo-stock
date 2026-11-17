@@ -144,6 +144,17 @@ td.desc{min-width:240px}
 .modes button{border:0;background:transparent;border-radius:10px;min-height:48px;font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--muted);cursor:pointer}
 .modes button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .modes{grid-template-columns:repeat(4,minmax(0,1fr))}
+/* Nov. 2026: 5 modos (se sumó Cuarto): 3 arriba y 2 abajo */
+.modes{grid-template-columns:repeat(6,minmax(0,1fr))}
+.modes button{grid-column:span 2}
+.modes button:nth-of-type(n+4){grid-column:span 3}
+.lista-sel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.lista-sel .label{font-weight:700}
+.lista-sel button{border:1px solid var(--line,rgba(127,127,127,.35));background:var(--surface-2);color:var(--fg);border-radius:999px;padding:7px 16px;font-weight:700;cursor:pointer}
+.lista-sel button[aria-pressed="true"]{background:var(--tape);border-color:var(--tape);color:var(--tape-fg)}
+.lista-sel button#lCuarto[aria-pressed="true"]{background:#0e8f8a;border-color:#0e8f8a;color:#fff}
+.modes.has-pill button#mCuarto[aria-pressed="true"]{background:transparent;box-shadow:none;color:#fff}
+.modes button#mCuarto[aria-pressed="true"]{background:#0e8f8a;color:#fff}
 .modes button#mNeg[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
 .card.neg{border-color:var(--accent)}
 .modes button{font-size:17px;line-height:1.1;padding:4px}
@@ -441,9 +452,16 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
 
   <!-- ===== ESCRITORIO ===== -->
   <section id="admin" hidden>
+    <div class="lista-sel" role="group" aria-label="Qué lista de conteo ves">
+      <span class="label">Lista de conteo</span>
+      <button type="button" id="lDep" aria-pressed="true">Depósito</button>
+      <button type="button" id="lCuarto" aria-pressed="false">Cuarto</button>
+      <span class="muted" id="listaHint">Armar lista, Resultados y Cierres muestran la lista del depósito.</span>
+    </div>
     <nav class="tabs" role="tablist">
       <button role="tab" id="tArmar" aria-selected="true">Armar lista</button>
       <button role="tab" id="tRes" aria-selected="false">Resultados <span class="count num" id="cntRes">0</span></button>
+      <button role="tab" id="tCierres" aria-selected="false">Cierres anteriores</button>
       <button role="tab" id="t_bajas" aria-selected="false">Roturas / bajas <span class="count num" id="cnt_bajas">0</span></button>
       <button role="tab" id="t_sueltos" aria-selected="false">Suelto <span class="count num" id="cnt_sueltos">0</span></button>
       <button role="tab" id="tNeg" aria-selected="false">Negativos <span class="count num" id="cntNeg">0</span></button>
@@ -552,12 +570,15 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
       <div id="closePanel"></div>
       <div class="tablebox">
         <table>
-          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Contado</th><th class="r" data-k="diff">Diferencia</th><th data-k="estado">Estado</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th></th></tr></thead>
+          <thead id="resHead"><tr><th data-k="cod">Cód.</th><th data-k="bar">Código de barras</th><th data-k="desc">Descripción</th><th class="r" data-k="stock">Sistema</th><th class="r" data-k="contado">Físico</th><th class="r" data-k="diff">Diferencia</th><th data-k="contadoEn">Contado el</th><th data-k="contadoPor">Contó</th><th></th></tr></thead>
           <tbody id="resBody"></tbody>
         </table>
       </div>
       <textarea id="copyArea" hidden readonly style="width:100%;height:120px;margin-top:10px"></textarea>
-      <h3 style="margin:24px 0 8px">Cierres anteriores</h3>
+    </div>
+
+    <div id="pCierres" hidden>
+      <h3 style="margin:4px 0 8px" id="cierresTit">Cierres anteriores</h3>
       <div class="tablebox">
         <table>
           <thead><tr><th>Cerrado el</th><th>Cerró</th><th class="r">Productos</th><th class="r">Contados</th><th class="r">Con ajuste</th><th class="r">Diferencia neta</th><th></th></tr></thead>
@@ -625,6 +646,7 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
     <div class="phone">
       <div class="modes" role="group" aria-label="Qué estás cargando">
         <button id="mConteo" type="button" aria-pressed="true">Conteo</button>
+        <button id="mCuarto" type="button" aria-pressed="false">Cuarto</button>
         <button id="m_bajas" type="button" aria-pressed="false">Roturas / bajas</button>
         <button id="m_sueltos" type="button" aria-pressed="false">Suelto</button>
         <button id="mNeg" type="button" aria-pressed="false">Negativos</button>
@@ -639,7 +661,7 @@ tr.fila-nueva td{animation:filaNueva 1.8s ease-out}
         <div class="muted" style="margin-top:4px" id="hMovHint"></div>
       </div>
       <div class="progress" id="hConteoHead">
-        <div class="row" style="justify-content:space-between"><h2>Conteo <span class="muted" id="hWho" style="font-size:.7em"></span></h2><span class="num"><strong id="hDone">0</strong> de <span id="hTotal">0</span></span></div>
+        <div class="row" style="justify-content:space-between"><h2><span id="hConteoTit">Conteo</span> <span class="muted" id="hWho" style="font-size:.7em"></span></h2><span class="num"><strong id="hDone">0</strong> de <span id="hTotal">0</span></span></div>
         <div class="track"><div class="fill" id="hFill"></div></div>
       </div>
 
@@ -715,6 +737,12 @@ function saveFile(filename, text){
 }
 let catalog = [], byBar = new Map(), byCod = new Map(), catMeta = null;
 let items = new Map(); // docId -> data
+// Nov. 2026: dos listas de conteo con las mismas funciones: la del depósito (items/cierres) y la del Cuarto (cuarto_items/cuarto_cierres).
+let lista = 'dep';
+const itemsBy = { dep:new Map(), cuarto:new Map() }, cierresBy = { dep:[], cuarto:[] };
+const IC = (l = lista) => l === 'cuarto' ? 'cuarto_items' : 'items';
+const CC = (l = lista) => l === 'cuarto' ? 'cuarto_cierres' : 'cierres';
+const LISTA_NOM = { dep:'Depósito', cuarto:'Cuarto' };
 let selected = new Set(); // cod
 let armLimit = 300;
 let resFilter = '', hFilter = 'pend';
@@ -738,7 +766,7 @@ const KINDS = {
 };
 const movs = { bajas: [], sueltos: [] }; // cargas de cada tipo, más nuevas primero
 const motivoSel = { bajas: 'Rotura', sueltos: 'Encontrado' };
-let hMode = (KINDS[ls.get('modo')] || ls.get('modo') === 'neg') ? ls.get('modo') : 'conteo';
+let hMode = (KINDS[ls.get('modo')] || ls.get('modo') === 'neg' || ls.get('modo') === 'cuarto') ? ls.get('modo') : 'conteo';
 let me = { email:'', name:'' }; // quién está usando la app (de su cuenta de Google)
 const byWho = () => ({ por: me.name, porMail: me.email });
 let editing = null;   // {kind, id}: carga que se corrige desde el celular
@@ -748,7 +776,7 @@ let adminEdit = null; // {kind, id}: fila que se edita en el escritorio (kind 'i
 // tipo: n = número (mayor a menor primero), t = texto (A→Z primero), d = fecha (más nuevos primero)
 const SORTS = {
   arm: { k:'stock', dir:-1, keys:{ stock:['Stock','n'], ptocri:['Punto crítico','n'], desc:['Descripción','t'], cod:['Código interno','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } },
-  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Contado','n'], desc:['Descripción','t'], cod:['Código interno','t'], estado:['Estado','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], bar:['Código de barras','t'] } },
+  res: { k:'desc', dir:1, keys:{ diff:['Diferencia','n'], stock:['Stock sistema','n'], contado:['Físico','n'], desc:['Descripción','t'], cod:['Código interno','t'], contadoEn:['Contado el','d'], contadoPor:['Contó','t'], bar:['Código de barras','t'] } },
 };
 for (const k in KINDS) SORTS['mov_' + k] = { k:'fecha', dir:-1, keys:{ fecha:['Fecha','d'], cantidad:['Unidades','n'], cargas:['Cargas','n'], stock:['Stock sistema','n'], total:[KINDS[k].totalLabel,'n'], desc:['Descripción','t'], cod:['Código interno','t'], motivo:['Motivo','t'], por:['Cargó','t'], rubro:['Rubro','t'], bar:['Código de barras','t'] } };
 const cmpVal = (a, b) => (typeof a === 'number' && typeof b === 'number') ? a - b : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
@@ -818,7 +846,7 @@ $('vHugo').onclick = () => setView('hugo');
 const hash = location.hash.replace('#','');
 setView(hash === 'hugo' || hash === 'admin' ? hash : (ls.get('vista') || (matchMedia('(max-width: 760px)').matches ? 'hugo' : 'admin')));
 
-const tabs = { tArmar:'pArmar', tRes:'pRes', t_bajas:'p_bajas', t_sueltos:'p_sueltos', tNeg:'pNeg', tCat:'pCat' };
+const tabs = { tArmar:'pArmar', tRes:'pRes', tCierres:'pCierres', t_bajas:'p_bajas', t_sueltos:'p_sueltos', tNeg:'pNeg', tCat:'pCat' };
 for (const t in tabs) $(t).onclick = () => { for (const u in tabs){ $(u).setAttribute('aria-selected', u === t); $(tabs[u]).hidden = u !== t; } };
 
 /* ---------- Catálogo ---------- */
@@ -901,10 +929,10 @@ $('syncFile').onchange = async () => {
 // Los ya contados no se tocan, así su diferencia queda contra el stock que tenían al contarlos.
 async function syncItems(rows){
   const nuevo = new Map(rows.map(r => [r[0], r[3]])), cambios = [];
-  for (const [id, it] of items) if (it.contado == null && nuevo.has(it.cod) && nuevo.get(it.cod) !== it.stock) cambios.push([id, nuevo.get(it.cod)]);
+  for (const l of ['dep', 'cuarto']) for (const [id, it] of itemsBy[l]) if (it.contado == null && nuevo.has(it.cod) && nuevo.get(it.cod) !== it.stock) cambios.push([IC(l) + '/' + id, nuevo.get(it.cod)]);
   for (let i = 0; i < cambios.length; i += 400){
     const b = db.batch();
-    for (const [id, stock] of cambios.slice(i, i + 400)) b.update(db.doc('items/' + id), { stock });
+    for (const [path, stock] of cambios.slice(i, i + 400)) b.update(db.doc(path), { stock });
     await b.commit();
   }
   return cambios.length;
@@ -1040,7 +1068,7 @@ $('bAdd').onclick = async () => {
   let n = 0;
   try {
     for (const p of toAdd){
-      await db.doc('items/' + docId(p.cod)).set({ cod:p.cod, bar:p.bar, desc:p.desc, rubro:p.b || p.a, stock:p.stock, equi:p.equi, contado:null, contadoEn:null, extra:false, agregado:new Date().toISOString() });
+      await db.doc(IC() + '/' + docId(p.cod)).set({ cod:p.cod, bar:p.bar, desc:p.desc, rubro:p.b || p.a, stock:p.stock, equi:p.equi, contado:null, contadoEn:null, extra:false, agregado:new Date().toISOString() });
       n++; if (n % 10 === 0) st.textContent = `Agregando ${n} de ${toAdd.length}…`;
     }
     selected.clear();
@@ -1107,8 +1135,8 @@ $('bMass').onclick = async () => {
       const id = docId(r.cod);
       if (seen.has(id)){ repetidos++; continue; } seen.add(id);
       const it = items.get(id);
-      if (!it){ ops.push({ type:'set', path:'items/' + id, data:{ ...r, contado:null, contadoEn:null, extra:false, agregado:now, origen:'excel' } }); nuevos++; }
-      else if (it.contado == null){ ops.push({ type:'update', path:'items/' + id, data:{ bar:r.bar || it.bar, desc:r.desc || it.desc, stock:r.stock } }); actualizados++; }
+      if (!it){ ops.push({ type:'set', path:IC() + '/' + id, data:{ ...r, contado:null, contadoEn:null, extra:false, agregado:now, origen:'excel' } }); nuevos++; }
+      else if (it.contado == null){ ops.push({ type:'update', path:IC() + '/' + id, data:{ bar:r.bar || it.bar, desc:r.desc || it.desc, stock:r.stock } }); actualizados++; }
       else contados++;
     }
     if (items.size + nuevos > 1000) throw new Error(`La lista admite hasta 1.000 productos: ya hay ${items.size} y el archivo agrega ${nuevos}.`);
@@ -1153,13 +1181,13 @@ function renderRes(){
     if (adminEdit?.kind === 'items' && adminEdit.id === i.id){
       return `<tr class="editrow"><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)}</td>
         <td class="r num">${fmt(i.stock)}</td><td class="r" colspan="2"><div class="rowbtns" style="justify-content:flex-end"><label class="muted">Apto <input id="ae_cont" type="number" min="0" step="1" value="${i.contado != null ? (i.apto ?? i.contado) : ''}" aria-label="Cantidad apta"></label><label class="muted">No apto <input id="ae_noapto" type="number" min="0" step="1" value="${i.noApto || ''}" aria-label="Cantidad no apta"></label></div></td>
-        <td colspan="4"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
+        <td colspan="3"><div class="rowbtns"><button class="btn primary" type="button" data-csave>Guardar</button>${i.contado != null ? '<button class="btn danger" type="button" data-cclear>Borrar conteo</button>' : ''}<button class="btn" type="button" data-ccancel>Cancelar</button></div></td></tr>`;
     }
     return `<tr><td class="mono">${esc(i.cod)}</td><td class="mono">${esc(i.bar)}</td><td class="desc">${esc(i.desc)} ${i.extra ? '<span class="pill list">Agregado en el celular</span>' : ''}${i.pendienteDesde ? ` <span class="pill over">Pendiente del ${fmtDia(i.pendienteDesde)}</span>` : ''}${i.editado ? ' <span class="pill">Corregido</span>' : ''}</td>
       <td class="r num">${fmt(i.stock)}</td><td class="r num">${fmt(i.contado)}${i.noApto ? `<br><span class="muted" style="color:var(--bad)">${fmt(i.noApto)} no apto</span>` : ''}</td>
-      <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td>${pill}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
+      <td class="r num diff ${d == null ? '' : d < 0 ? 'neg' : d > 0 ? 'pos' : 'zero'}">${fmtDiff(d)}</td><td class="muted num">${when}</td><td>${esc(i.contado != null ? i.contadoPor || '' : '')}${i.editadoPor ? `<br><span class="muted">corrigió ${esc(i.editadoPor)}</span>` : ''}</td>
       <td><div class="rowbtns"><button class="btn" type="button" data-cedit="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Editar</button><button class="btn danger" type="button" data-del="${esc(i.id)}" ${canWrite ? '' : 'disabled'}>Quitar</button></div></td></tr>`;
-  }).join('') || `<tr><td colspan="10" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty">${all.length ? 'Nada en este filtro.' : 'La lista está vacía. Armala en “Armar lista”.'}</td></tr>`;
   renderClose(false);
 }
 $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; resFilter = b.dataset.f; for (const c of $('resChips').children) c.setAttribute('aria-pressed', c === b); renderRes(); });
@@ -1167,7 +1195,7 @@ $('resChips').addEventListener('click', e => { const b = e.target.closest('.chip
 // apto null = borrar el conteo. El no apto se refleja en Roturas / bajas (ver syncNoApto).
 async function saveCount(id, apto, noApto = 0){
   const it = items.get(id); if (!it) return;
-  const ref = db.doc('items/' + id), now = new Date().toISOString(), p = itemAsProd(it);
+  const ref = db.doc(IC() + '/' + id), now = new Date().toISOString(), p = itemAsProd(it);
   if (apto == null){
     await syncNoApto(id, p, 0);
     if (it.extra) return ref.delete();
@@ -1179,9 +1207,9 @@ async function saveCount(id, apto, noApto = 0){
 // Cada conteo tiene a lo sumo una carga en Roturas / bajas con su no apto (id fijo "cnt_<producto>"),
 // así corregir o borrar el conteo actualiza o quita esa rotura en vez de duplicarla.
 async function syncNoApto(itemId, p, noApto){
-  const ref = db.doc(KINDS.bajas.col + '/cnt_' + itemId), prev = findMov('bajas', 'cnt_' + itemId), now = new Date().toISOString();
+  const cid = (lista === 'cuarto' ? 'cntc_' : 'cnt_') + itemId, ref = db.doc(KINDS.bajas.col + '/' + cid), prev = findMov('bajas', cid), now = new Date().toISOString();
   if (!(noApto > 0)) return ref.delete(); // borrar un documento que no existe no da error
-  return ref.set({ ...prodFields(p), cantidad:noApto, motivo:'No apto (conteo)', nota:'Cargado desde el conteo', origen:'conteo',
+  return ref.set({ ...prodFields(p), cantidad:noApto, motivo:'No apto (conteo)', nota:lista === 'cuarto' ? 'Cargado desde el conteo del Cuarto' : 'Cargado desde el conteo', origen:lista === 'cuarto' ? 'cuarto' : 'conteo',
     fecha: prev?.fecha || now, por: prev?.por || me.name, porMail: prev?.porMail || me.email, ...(prev ? { editado:now, editadoPor:me.name } : {}) });
 }
 async function resEditAction(fn, msg){
@@ -1204,14 +1232,14 @@ $('resBody').addEventListener('click', async e => {
   }
   const b = e.target.closest('[data-del]'); if (!b || !db) return;
   b.disabled = true;
-  try { await db.doc('items/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
+  try { await db.doc(IC() + '/' + b.dataset.del).delete(); } catch (err) { $('resStatus').textContent = 'No se pudo quitar: ' + (err.message || err.code); b.disabled = false; }
 });
 function tableRows(){
   return planillaTabla(sortedItems().map(planillaRow));
 }
 // El Excel sale en dos bloques: primero lo apto (todos los productos) y abajo lo no apto (solo los que tienen).
 // El motivo del ajuste se sigue guardando en el cierre, pero no va en el Excel.
-const PLANILLA_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Contado','Apto','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
+const PLANILLA_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','Stock sistema','Fisico','Apto','Diferencia','Estado','Contado el','Contado por','Agregado en el celular'];
 const NOAPTO_HEAD = ['Codigo interno','Codigo de barras','Descripcion','Rubro','No apto','Contado el','Contado por'];
 const fechaCelda = r => r.contadoEn ? new Date(r.contadoEn).toLocaleString('es-AR') : '';
 function planillaTabla(filas){
@@ -1233,7 +1261,7 @@ $('resBody').addEventListener('change', async e => {
   const f = e.target.closest('[data-aj]'); if (!f || !db) return;
   const box = f.closest('.ajuste'), id = box.dataset.id;
   try {
-    await db.doc('items/' + id).update({ ajusteMotivo: box.querySelector('[data-aj="mot"]').value, ajusteDetalle: box.querySelector('[data-aj="det"]').value.trim(), ajustePor: me.name, ajusteEn: new Date().toISOString() });
+    await db.doc(IC() + '/' + id).update({ ajusteMotivo: box.querySelector('[data-aj="mot"]').value, ajusteDetalle: box.querySelector('[data-aj="det"]').value.trim(), ajustePor: me.name, ajusteEn: new Date().toISOString() });
     $('resStatus').textContent = 'Motivo del ajuste guardado.';
   } catch (err) { $('resStatus').textContent = writeErr(err); }
 });
@@ -1254,7 +1282,7 @@ function renderClear(confirming){
   $('bClearNo').onclick = () => renderClear(false);
   $('bClearYes').onclick = async () => {
     $('bClearYes').disabled = true; let n = 0;
-    try { for (const id of [...items.keys()]){ await db.doc('items/' + id).delete(); n++; } $('resStatus').textContent = `Lista vaciada (${n} productos).`; }
+    try { for (const id of [...items.keys()]){ await db.doc(IC() + '/' + id).delete(); n++; } $('resStatus').textContent = `Lista vaciada (${n} productos).`; }
     catch (e) { $('resStatus').textContent = 'No se pudo vaciar del todo: ' + (e.message || e.code); }
     renderClear(false);
   };
@@ -1284,10 +1312,10 @@ function renderClose(confirming){
     for (const b of panel.querySelectorAll('button')) b.disabled = true;
     try {
       const filas = all.map(planillaRow), hoy = new Date().toISOString();
-      await db.collection('cierres').add({ fecha:hoy, cerradoPor:me.name, cerradoPorMail:me.email, filas,
+      await db.collection(CC()).add({ fecha:hoy, cerradoPor:me.name, cerradoPorMail:me.email, filas,
         totales:{ productos:all.length, contados:done.length, conAjuste:conAjuste.length, pendientes:pend, neto:done.reduce((s, i) => s + (i.contado - i.stock), 0) } });
-      if (vaciar) await writeAll(all.map(i => i.contado != null ? { type:'delete', path:'items/' + i.id }
-        : { type:'update', path:'items/' + i.id, data:{ pendienteDesde: i.pendienteDesde || hoy } }), n => { $('resStatus').textContent = `Cerrando el día… ${n}`; });
+      if (vaciar) await writeAll(all.map(i => i.contado != null ? { type:'delete', path:IC() + '/' + i.id }
+        : { type:'update', path:IC() + '/' + i.id, data:{ pendienteDesde: i.pendienteDesde || hoy } }), n => { $('resStatus').textContent = `Cerrando el día… ${n}`; });
       close(); $('resStatus').textContent = vaciar
         ? `Día cerrado. Se ${done.length === 1 ? 'quitó 1 contado' : `quitaron ${fmt(done.length)} contados`}${pend ? ` y ${pend === 1 ? 'quedó 1 pendiente' : `quedaron ${fmt(pend)} pendientes`} para contar` : ''}. La planilla quedó en “Cierres anteriores”.`
         : 'Día cerrado. La planilla quedó en “Cierres anteriores” y la lista no cambió.';
@@ -1416,7 +1444,7 @@ function renderCard(){
     if (v == null || Number.isNaN(v)){ hStatus('Cargá la cantidad apta y, si hay, la no apta.', true); qa.focus(); return; }
     $('bSave').disabled = true;
     try {
-      const id = docId(p.cod), ref = db.doc('items/' + id), now = new Date().toISOString();
+      const id = docId(p.cod), ref = db.doc(IC() + '/' + id), now = new Date().toISOString();
       const data = { contado:v.total, apto:v.apto, noApto:v.noApto, contadoEn:now, contadoPor:me.name, contadoPorMail:me.email };
       if (it) await ref.update(data);
       else await ref.set({ cod:p.cod, bar:p.bar || '', desc:p.desc, rubro:p.b || p.a || '', stock:p.stock, equi:p.equi || 0, extra:true, agregado:now, ...data });
@@ -1453,8 +1481,10 @@ const prodFromMov = m => byCod.get(m.cod) || { cod:m.cod, bar:m.bar, desc:m.desc
 const findMov = (k, id) => movs[k].find(m => m.id === id) || null;
 
 function setMode(m){
-  hMode = m; ls.set('modo', m); editing = null;
-  $('mConteo').setAttribute('aria-pressed', m === 'conteo');
+  ls.set('modo', m);
+  if (m === 'cuarto' || m === 'conteo'){ const l = m === 'cuarto' ? 'cuarto' : 'dep'; m = 'conteo'; if (l !== lista) setLista(l, true); }
+  hMode = m; editing = null;
+  $('mConteo').setAttribute('aria-pressed', m === 'conteo' && lista === 'dep'); $('mCuarto').setAttribute('aria-pressed', m === 'conteo' && lista === 'cuarto');
   for (const k in KINDS) $('m_' + k).setAttribute('aria-pressed', m === k);
   $('mNeg').setAttribute('aria-pressed', m === 'neg');
   $('hConteoHead').hidden = $('hConteoList').hidden = m !== 'conteo';
@@ -1464,6 +1494,18 @@ function setMode(m){
   renderMovPhone(); if (m === 'neg') renderNegPhone();
 }
 $('mConteo').onclick = () => setMode('conteo');
+$('mCuarto').onclick = () => setMode('cuarto');
+// Cambia la lista de conteo activa (depósito o Cuarto): Armar lista, Resultados, Cierres y el conteo del celular.
+function setLista(l, silencio){
+  lista = l; items = itemsBy[l]; cierres = cierresBy[l]; adminEdit = null; current = null;
+  $('lDep').setAttribute('aria-pressed', l === 'dep'); $('lCuarto').setAttribute('aria-pressed', l === 'cuarto');
+  $('listaHint').textContent = 'Armar lista, Resultados y Cierres muestran la lista ' + (l === 'cuarto' ? 'del Cuarto.' : 'del depósito.');
+  $('cierresTit').textContent = 'Cierres anteriores · ' + LISTA_NOM[l]; $('hConteoTit').textContent = l === 'cuarto' ? 'Cuarto' : 'Conteo';
+  if (hMode === 'conteo' || hMode === 'cuarto'){ $('mConteo').setAttribute('aria-pressed', l === 'dep'); $('mCuarto').setAttribute('aria-pressed', l === 'cuarto'); }
+  renderAll(); if (!silencio) renderCard();
+}
+$('lDep').onclick = () => { setLista('dep'); if (hMode === 'conteo') ls.set('modo', 'conteo'); };
+$('lCuarto').onclick = () => { setLista('cuarto'); if (hMode === 'conteo') ls.set('modo', 'cuarto'); };
 for (const k in KINDS) $('m_' + k).onclick = () => setMode(k);
 
 function renderMovCard(){
@@ -2015,7 +2057,7 @@ $('bLiveClose').onclick = stopLive;
 /* ---------- Render general ---------- */
 function renderAll(){ renderCatInfo(); renderArmar(); renderRes(); renderHugo(); renderClear(false); renderMovPhone(); for (const k in KINDS) renderMovAdmin(k); renderNegAdmin(); renderNegPhone(); renderCierres(); }
 sortOptions($('sArm'), SORTS.arm, ['stock','ptocri','desc','cod','rubro']);
-sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','estado','contadoEn','contadoPor']);
+sortOptions($('sRes'), SORTS.res, ['diff','stock','contado','desc','cod','contadoEn','contadoPor']);
 wireSort('arm', $('sArm'), $('armHead'), renderArmar);
 wireSort('res', $('sRes'), $('resHead'), renderRes);
 sortOptions($('sNeg'), SORTS.neg, ['diff','stock','contado','desc','cod','motivo','contadoPor','contadoEn']);
@@ -2061,12 +2103,12 @@ renderAll();
   const pubListo = new Set();
   const pubVio = (k, snap) => { pubListo.add(k); try { window.__conteoPub?.cambio(); } catch {} };
   window.__conteoEstado = () => ({ listo: !!db && ['items', 'negativos', 'bajas', 'sueltos', 'cierres'].every(k => pubListo.has(k)),
-    por: me.name, items: [...items.values()], negativos: [...negs.values()], bajas: movs.bajas, sueltos: movs.sueltos, cierres });
+    por: me.name, items: [...itemsBy.dep.values()], negativos: [...negs.values()], bajas: movs.bajas, sueltos: movs.sueltos, cierres: cierresBy.dep });
   auth.onAuthStateChanged(u => {
     unsubs.forEach(f => f()); unsubs = []; pubListo.clear();
     signedIn = !!u;
     $('login').hidden = signedIn; $('who').hidden = !signedIn;
-    if (!u){ $('bSync').disabled = true; db = null; items = new Map(); negs = new Map(); cierres = []; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
+    if (!u){ $('bSync').disabled = true; db = null; itemsBy.dep = new Map(); itemsBy.cuarto = new Map(); cierresBy.dep = []; cierresBy.cuarto = []; items = itemsBy[lista]; negs = new Map(); cierres = cierresBy[lista]; for (const k in KINDS) movs[k] = []; notice.hidden = true; setView(currentView); renderAll(); return; }
     $('whoMail').textContent = u.email || '';
     // El nombre que queda registrado en cada carga: el primer nombre de la cuenta de Google.
     me = { email: (u.email || '').toLowerCase(), name: (u.displayName || '').trim().split(/\s+/)[0] || (u.email || '').split('@')[0] };
@@ -2075,10 +2117,12 @@ renderAll();
     setView(currentView);
     $('bImp').disabled = !$('impFile').files.length; $('bSync').disabled = false;
     unsubs.push(db.doc('catalogo/meta').onSnapshot(s => loadCatalog(s.exists ? s.data() : null), denied));
-    unsubs.push(db.collection('items').limit(1000).onSnapshot(snap => {
-      items = new Map(snap.docs.map(d => [d.id, d.data()]));
+    for (const l of ['dep', 'cuarto']) unsubs.push(db.collection(IC(l)).limit(1000).onSnapshot(snap => {
+      itemsBy[l] = new Map(snap.docs.map(d => [d.id, d.data()]));
+      if (l === 'dep') pubVio('items', snap);
+      if (l !== lista) return;
+      items = itemsBy[l];
       renderArmar(); renderRes(); renderHugo(); renderClear(false);
-      pubVio('items', snap);
     }, denied));
     unsubs.push(db.collection('negativos').limit(1000).onSnapshot(snap => {
       negs = new Map(snap.docs.map(d => [d.id, d.data()]));
@@ -2091,10 +2135,12 @@ renderAll();
       renderMovAdmin(k);
       pubVio(k, snap);
     }, denied));
-    unsubs.push(db.collection('cierres').orderBy('fecha', 'desc').limit(100).onSnapshot(snap => {
-      cierres = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    for (const l of ['dep', 'cuarto']) unsubs.push(db.collection(CC(l)).orderBy('fecha', 'desc').limit(100).onSnapshot(snap => {
+      cierresBy[l] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (l === 'dep') pubVio('cierres', snap);
+      if (l !== lista) return;
+      cierres = cierresBy[l];
       renderCierres();
-      pubVio('cierres', snap);
     }, denied));
     renderAll();
   });
@@ -2268,7 +2314,7 @@ renderAll();
   new MutationObserver(verEntrada).observe(document.querySelector('.wrap'), { subtree: true, attributes: true, attributeFilter: ['hidden'] });
 
   // --- Indicadores que se deslizan al botón elegido
-  const COLOR_MODO = { mConteo: 'var(--accent)', m_bajas: 'var(--bad)', m_sueltos: 'var(--ok)', mNeg: 'var(--chrome-2)' };
+  const COLOR_MODO = { mConteo: 'var(--accent)', mCuarto: '#0e8f8a', m_bajas: 'var(--bad)', m_sueltos: 'var(--ok)', mNeg: 'var(--chrome-2)' };
   const pills = [];
   const crearPill = (cont, attr, color) => {
     if (!cont) return;
