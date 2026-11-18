@@ -752,7 +752,7 @@ let stream = null, liveTimer = null, wake = null; // cámara en vivo
 // sign: -1 resta del stock (roturas), +1 suma (mercadería suelta que no figuraba).
 const KINDS = {
   bajas: { col:'bajas', title:'Roturas y bajas', sign:-1, cls:'bad', card:'baja',
-    hint:'Escaneá cada producto roto o dado de baja y cargá cuántas unidades. Podés cargar el mismo producto varias veces.',
+    hint:'Escaneá cada producto roto o dado de baja y cargá cuántas unidades. Si cargás el mismo producto otra vez, se suma en la misma fila.',
     motivos:['Rotura', 'Vencido', 'Mal estado', 'Otro'], qtyLabel:'Unidades rotas / de baja', save:'Guardar baja', saved:'Baja guardada',
     notaPh:'Nota (opcional): dónde estaba, cómo se rompió…', unitsTile:'Unidades dadas de baja', totalLabel:'Stock − bajas', csv:'roturas-bajas',
     empty:'Todavía no cargaste roturas hoy. Escaneá el código del producto roto para empezar.',
@@ -1556,8 +1556,19 @@ function renderMovCard(){
         await db.doc(K.col + '/' + ed.id).update({ ...prodFields(p), cantidad:v, motivo:mot, nota, editado:now, editadoPor:me.name });
         toast(`Carga corregida: ${signed(k, v)} u.`);
       } else {
-        await db.collection(K.col).add({ ...prodFields(p), cantidad:v, motivo:mot, nota, fecha:now, ...byWho() });
-        toast(`${K.saved}: ${fmt(v)} u. (${mot})`);
+        /* 2026-11-18: si HOY ya hay una carga del mismo producto, con el mismo motivo y de la misma persona, se SUMA en esa fila
+           (1 + 1 + 1 → una fila con 3) en vez de crear otra. Queda la cantidad de cargas (cargas) y la hora de la primera. */
+        const yo = me.email || me.name;
+        const prev = movs[k].find(m => isToday(m.fecha) && m.cod === p.cod && (m.motivo || '') === mot && ((m.porMail || m.por) === yo));
+        if (prev){
+          const notaN = nota && nota !== (prev.nota || '') ? [prev.nota, nota].filter(Boolean).join(' · ').slice(0, 400) : (prev.nota || '');
+          await db.doc(K.col + '/' + prev.id).update({ cantidad: firebase.firestore.FieldValue.increment(v), cargas: (prev.cargas || 1) + 1,
+            primeraCarga: prev.primeraCarga || prev.fecha, fecha: now, nota: notaN });
+          toast(`Sumado: ${fmt((prev.cantidad || 0) + v)} u. de ${prev.desc || p.desc} (${mot})`);
+        } else {
+          await db.collection(K.col).add({ ...prodFields(p), cantidad:v, motivo:mot, nota, fecha:now, cargas:1, ...byWho() });
+          toast(`${K.saved}: ${fmt(v)} u. (${mot})`);
+        }
       }
       buzz(60); close(); hStatus('');
       window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1571,7 +1582,7 @@ function renderMovPhone(){
   $('hMovTitle').textContent = K.title; $('hMovHint').textContent = K.hint;
   $('hMovHoy').textContent = fmt(sumQty(hoy));
   $('hMovBody').innerHTML = list.slice(0, MAX).map(m => `<div class="movrow${editing?.id === m.id ? ' sel' : ''}">
-      <span class="t"><span style="font-weight:600;overflow-wrap:anywhere">${esc(m.desc)}</span><br><span class="muted">${esc(m.motivo)} · ${isToday(m.fecha) ? fmtHora(m.fecha) : fmtWhen(m.fecha)}${m.por ? ' · ' + esc(m.por) : ''}${m.nota ? ' · ' + esc(m.nota) : ''}${m.editado ? ' · corregida' : ''}</span></span>
+      <span class="t"><span style="font-weight:600;overflow-wrap:anywhere">${esc(m.desc)}</span><br><span class="muted">${esc(m.motivo)} · ${isToday(m.fecha) ? fmtHora(m.fecha) : fmtWhen(m.fecha)}${m.por ? ' · ' + esc(m.por) : ''}${(m.cargas || 1) > 1 ? ' · ' + m.cargas + ' cargas sumadas' : ''}${m.nota ? ' · ' + esc(m.nota) : ''}${m.editado ? ' · corregida' : ''}</span></span>
       <strong class="num diff ${K.sign < 0 ? 'neg' : 'zero'}" style="white-space:nowrap">${signed(k, m.cantidad)}</strong>
       <button class="btn" type="button" data-medit="${esc(m.id)}" ${canWrite ? '' : 'disabled'}>Editar</button>
       <button class="btn" type="button" data-mdel="${esc(m.id)}" data-kind="${k}" ${canWrite ? '' : 'disabled'}>Borrar</button></div>`).join('')
